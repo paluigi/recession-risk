@@ -1,0 +1,205 @@
+# Install packages if missing
+# install.packages(c("eurostat", "ecb", "dplyr", "tidyr", "lubridate", 
+#                    "ggplot2", "patchwork", "brms", "zoo"))
+
+library(eurostat)
+library(ecb)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(ggplot2)
+library(patchwork)
+library(brms)
+library(zoo)
+
+# Target countries: Euro Area (EA), Germany (DE), France (FR), Italy (IT), Spain (ES)
+# Note: Eurostat uses 'EA', ECB uses 'U2' for the Euro Area.
+target_geo_eurostat <- c("EA20", "DE", "FR", "IT", "ES")
+target_geo_ecb <- c("U2", "DE", "FR", "IT", "ES")
+
+## 1. Download GDP Data (Eurostat)
+
+# 'namq_10_gdp' is the Eurostat dataset for GDP and main components
+gdp_raw <- get_eurostat("namq_10_gdp", time_format = "date", stringsAsFactors = FALSE)
+
+gdp <- gdp_raw %>%
+  # Safely rename new API columns to the old names, ignoring them if they don't exist
+  rename(any_of(c(time = "TIME_PERIOD", values = "OBS_VALUE"))) %>%
+  filter(
+    na_item == "B1GQ",         # Gross domestic product at market prices
+    s_adj == "SCA",            # Seasonally and calendar adjusted data
+    unit == "CLV_PCH_PRE",         # Percentage change on previous period (QoQ)
+    geo %in% target_geo_eurostat
+  ) %>%
+  select(geo, time, gdp_growth = values) %>%
+  mutate(
+    # Standardize Euro Area code to 'EA'
+    geo = ifelse(grepl("EA", geo), "EA", geo),
+    quarter = as.yearqtr(time)
+  ) %>%
+  # In case of overlapping EA definitions, keep the longest non-NA series
+  group_by(geo, quarter) %>%
+  summarise(gdp_growth = mean(gdp_growth, na.rm = TRUE), .groups = "drop")
+
+# Downlaod CISS Data
+# The CISS key structure: CISS.Frequency.ReferenceArea...
+# Using wildcard for the country/area to get all available
+ciss_key <- "CISS.D..Z0Z.4F.EC.SS_CIN.IDX"
+ciss_raw <- get_data(ciss_key)
+
+ciss <- ciss_raw %>%
+  filter(ref_area %in% target_geo_ecb) %>%
+  mutate(
+    time = as.Date(paste0(obstime, "-01")),
+    geo = ifelse(ref_area == "U2", "EA", ref_area),
+    quarter = as.yearqtr(time)
+  ) %>%
+  group_by(geo, quarter) %>%
+  summarise(ciss = mean(obsvalue, na.rm = TRUE), .groups = "drop")
+
+## 3. Download Economic Sentiment Indicator (Eurostat)
+
+esi_raw <- get_eurostat("ei_bssi_m_r2", time_format = "date", stringsAsFactors = FALSE)
+
+esi <- esi_raw %>%
+  # Safely rename new API columns to the old names, ignoring them if they don't exist
+  rename(any_of(c(time = "TIME_PERIOD", values = "OBS_VALUE"))) %>%
+  filter(
+    indic == "BS-ESI-I",       # Economic Sentiment Indicator
+    s_adj == "SA",             # Seasonally adjusted
+    geo %in% target_geo_eurostat
+  ) %>%
+  select(geo, time, esi = values) %>%
+  mutate(
+    geo = ifelse(grepl("EA", geo), "EA", geo),
+    quarter = as.yearqtr(time)
+  ) %>%
+  group_by(geo, quarter) %>%
+  summarise(esi = mean(esi, na.rm = TRUE), .groups = "drop")
+
+# Combine data and calculate recession risk
+# Merge all datasets
+df <- gdp %>%
+  inner_join(ciss, by = c("geo", "quarter")) %>%
+  inner_join(esi, by = c("geo", "quarter")) %>%
+  arrange(geo, quarter) %>%
+  group_by(geo) %>%
+  mutate(
+    # Recession definition: current quarter < 0 AND previous quarter < 0
+    recession = ifelse(gdp_growth < 0 & lag(gdp_growth, 1) < 0, 1, 0)
+  ) %>%
+  drop_na() %>% # Drop NAs created by lag and missing series overlaps
+  ungroup()
+
+# Standardize the predictors to help the Bayesian model converge faster
+df <- df %>%
+  mutate(
+    ciss_scaled = scale(ciss)[,1],
+    esi_scaled = scale(esi)[,1]
+  )
+
+# Hierarchical Bayesian Logit model
+# Determine the cut-off date (5 years ago from the maximum available date in the dataset)
+max_date <- max(df$quarter)
+cutoff_date <- max_date - 5 # 5 years subtraction on yearqtr object
+
+# Split data
+train_data <- df %>% filter(quarter <= cutoff_date)
+inference_data <- df # We infer on the whole set
+
+# Hierarchical Bayesian Logit Model using brms
+# Random intercepts and random slopes for each geo (Euro Area and countries)
+formula <- brmsformula(
+  recession ~ ciss_scaled + esi_scaled + (1 + ciss_scaled + esi_scaled | geo),
+  family = bernoulli(link = "logit")
+)
+
+# Fit the model (this may take a minute or two depending on your machine)
+# We set a seed for reproducibility. 
+brms_model <- brm(
+  formula = formula,
+  data = train_data,
+  prior = c(
+    prior(normal(0, 5), class = "Intercept"),
+    prior(normal(0, 2), class = "b")
+  ),
+  chains = 2,
+  cores = 2,
+  iter = 2000,
+  seed = 123,
+  silent = 2,
+  refresh = 0
+)
+
+summary(brms_model)
+
+# OUt of sample inference
+# Extract predicted probabilities (Estimate = mean of posterior)
+predictions <- fitted(brms_model, newdata = inference_data, type = "response")
+
+df_results <- inference_data %>%
+  mutate(
+    prob_recession = predictions[, "Estimate"],
+    lower_95 = predictions[, "Q2.5"],
+    upper_95 = predictions[, "Q97.5"],
+    is_forecast = ifelse(quarter > cutoff_date, "Inferred", "Training Data")
+  )
+
+# Data visualization
+# Function to generate a plot for a specific geography
+plot_geo <- function(data, region_name, is_main = FALSE) {
+  
+  p_data <- data %>% filter(geo == region_name)
+  
+  p <- ggplot(p_data, aes(x = as.Date(quarter))) +
+    # Actual Recession shaded areas
+    geom_rect(
+      data = p_data %>% filter(recession == 1),
+      aes(xmin = as.Date(quarter) - 45, xmax = as.Date(quarter) + 45, 
+          ymin = 0, ymax = 1), 
+      fill = "grey80", alpha = 0.5, inherit.aes = FALSE
+    ) +
+    # Recession Probability line
+    geom_line(aes(y = prob_recession, color = is_forecast), linewidth = 1) +
+    # 95% Credible Intervals
+    geom_ribbon(aes(ymin = lower_95, ymax = upper_95, fill = is_forecast), alpha = 0.2) +
+    geom_vline(xintercept = as.Date(cutoff_date), linetype = "dashed", color = "red") +
+    scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1)) +
+    scale_color_manual(values = c("Training Data" = "#004B87", "Inferred" = "#E37222")) +
+    scale_fill_manual(values = c("Training Data" = "#004B87", "Inferred" = "#E37222")) +
+    labs(
+      title = region_name,
+      y = "Recession Probability",
+      x = "",
+      color = "",
+      fill = ""
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "bottom",
+      plot.title = element_text(face = "bold", size = ifelse(is_main, 16, 12))
+    )
+  
+  return(p)
+}
+
+# 1. Main plot for Euro Area
+p_ea <- plot_geo(df_results, "EA", is_main = TRUE) + 
+  labs(subtitle = "Grey bars indicate actual historical recessions (2 consecutive quarters of negative growth). Red dashed line denotes the training data cut-off.")
+
+# 2. Country plots
+p_de <- plot_geo(df_results, "DE")
+p_fr <- plot_geo(df_results, "FR")
+p_it <- plot_geo(df_results, "IT")
+p_es <- plot_geo(df_results, "ES")
+
+# Combine country plots into a 2x2 grid
+country_grid <- (p_de | p_fr) / (p_it | p_es) + 
+  plot_layout(guides = "collect", axis_titles = "collect") & 
+  theme(legend.position = 'bottom')
+
+# Final layout: EA on top, 2x2 grid below
+final_plot <- p_ea / country_grid + plot_layout(heights = c(1, 1.5))
+
+final_plot
+country_grid
