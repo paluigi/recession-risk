@@ -1,0 +1,5 @@
+library(eurostat)
+gdp_raw <- get_eurostat("namq_10_gdp", time_format = "date", stringsAsFactors = FALSE)
+gdp_raw <- gdp_raw %>% rename(any_of(c(time = "TIME_PERIOD", values = "OBS_VALUE")))
+units_b1gq <- unique(gdp_raw$unit[gdp_raw$na_item == "B1GQ"])
+writeLines(units_b1gq, "units.txt")

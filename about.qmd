@@ -1,9 +1,35 @@
 ---
 title: "About"
+bibliography: references.bib
 ---
 
-About this site
+This site provides real-time monitoring and nowcasting of recession risk across the Euro Area and its main member states. The project is an empirical application and extension of the Bayesian nowcasting framework introduced by @Furno2024.
 
-```{r}
-1 + 1
-```
+## Data Sources
+
+The model uses public macroeconomic and financial data retrieved directly from the APIs of official European statistical and financial institutions:
+
+1. **Gross Domestic Product (GDP)**
+   - **Source**: Eurostat API (Dataset: `namq_10_gdp`).
+   - **Definition**: Quarter-on-Quarter percentage change of seasonally and calendar adjusted real Gross Domestic Product (market prices, B1GQ).
+   - **Role**: Target variable for labeling technical recessions (defined as two consecutive quarters of negative growth).
+
+2. **Economic Sentiment Indicator (ESI)**
+   - **Source**: Eurostat API (Dataset: `ei_bssi_m_r2`).
+   - **Definition**: Monthly composite index representing sentiment across industry, services, consumers, retail trade, and construction. The quarterly value is the simple average of the monthly indices in the quarter.
+   - **Role**: Macroeconomic indicator representing economic activity expectations.
+
+3. **Composite Indicator of Systemic Stress (CISS)**
+   - **Source**: European Central Bank (ECB) Data Portal (Key: `CISS.M..Z0Z.4F.EC.SS_CIN.B` for the monthly aggregate index).
+   - **Definition**: A monthly index measuring systemic stress in the financial system. It aggregates segment-specific stress indices using portfolio theory to weight segments by their correlation, emphasizing joint stress events. The quarterly value is the average of the monthly CISS values in the quarter.
+   - **Role**: Financial stress indicator representing capital and credit risks.
+
+## Model and Computation
+
+The project is implemented in R and compiled via Quarto. The core statistical modeling relies on:
+
+- **Bayesian Modeling**: Estimated via Markov Chain Monte Carlo (MCMC) using the `brms` package, which runs on top of Stan.
+- **Hierarchical Pooling**: Intercepts and indicator coefficients (slopes) are modeled with group-level random effects grouped by geography (`geo`). This pools informational strength across countries to make predictions more robust.
+- **Replicability**: The R script `recession-index.R` downloads the latest data, fits the model, and saves the data. The site compiles dynamically to display updated probabilities.
+
+## References

@@ -2,6 +2,7 @@
 title: "Euro Area Recession Risk Indicator"
 subtitle: "Replicating Giannone & Furno (Nowcasting Recession Risk)"
 author: "Automated Report"
+bibliography: references.bib
 format:
   html:
     toc: true
@@ -15,9 +16,9 @@ execute:
   message: false
 ---
 
-This is a Quarto website.
+Welcome to the **Euro Area Recession Risk Tracker**. This site presents real-time nowcasts of recession probabilities for the Euro Area (EA) and its four largest member states: Germany (DE), France (FR), Italy (IT), and Spain (ES). 
 
-To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
+Our methodology builds on the Bayesian logit nowcasting framework proposed by @Furno2024. By utilizing a **Hierarchical Bayesian model**, we allow the model to share information across different regions. This hierarchical structure ("shrinkage") is particularly valuable for improving the reliability of country-specific nowcasts during periods of high economic uncertainty.
 
 ```{r setup}
 # Install packages if missing
@@ -52,7 +53,7 @@ gdp <- gdp_raw %>%
   filter(
     na_item == "B1GQ",         # Gross domestic product at market prices
     s_adj == "SCA",            # Seasonally and calendar adjusted data
-    unit == "PCH_PRE",         # Percentage change on previous period (QoQ)
+    unit == "CLV_PCH_PRE",         # Percentage change on previous period (QoQ)
     geo %in% target_geo_eurostat
   ) %>%
   select(geo, time, gdp_growth = values) %>%
@@ -68,13 +69,14 @@ gdp <- gdp_raw %>%
 # Downlaod CISS Data
 # The CISS key structure: CISS.Frequency.ReferenceArea...
 # Using wildcard for the country/area to get all available
-ciss_key <- "CISS.M..Z0Z.4F.EC.SS_CIN.B"
+ciss_key <- "CISS.D..Z0Z.4F.EC.SS_CIN.IDX"
 ciss_raw <- get_data(ciss_key)
 
 ciss <- ciss_raw %>%
   filter(ref_area %in% target_geo_ecb) %>%
   mutate(
-    time = as.Date(paste0(obstime, "-01")),
+    obstime_char = as.character(obstime),
+    time = as.Date(ifelse(nchar(obstime_char) == 7, paste0(obstime_char, "-01"), obstime_char)),
     geo = ifelse(ref_area == "U2", "EA", ref_area),
     quarter = as.yearqtr(time)
   ) %>%
@@ -170,7 +172,21 @@ df_results <- inference_data %>%
   )
 ```
 
-TBD
+## Dashboard Overview
+
+This interactive dashboard displays the estimated recession probabilities derived from our Hierarchical Bayesian Logit model. By combining macroeconomic sentiment (ESI) and financial conditions (CISS) within a unified hierarchical structure, the model estimates the probability that the Euro Area and its four largest economies are in a technical recession.
+
+### How to Read the Charts
+- **Recession Probability (Solid Line)**: Represents the posterior mean probability of being in a recession.
+- **95% Credible Intervals (Shaded Ribbons)**: Reflect the uncertainty in our estimates. The wider the ribbon, the more uncertainty there is in the estimate.
+- **Historical Recessions (Grey Shaded Bars)**: Indicate periods of actual recessions defined by the technical definition of two consecutive quarters of negative quarter-on-quarter GDP growth.
+- **Data Splitting (Red Dashed Line)**: Denotes the out-of-sample cutoff.
+  - **Blue Line/Ribbon (Training Data)**: In-sample model performance.
+  - **Orange Line/Ribbon (Inferred Data)**: Out-of-sample estimates for the last 5 years, showing how the model performs on unseen data.
+
+## Model Estimation Results
+
+Below, we run the visualization routine to plot the estimated probabilities. The top panel displays the results for the aggregate Euro Area, while the bottom panel shows the individual country-level results for Germany, France, Italy, and Spain.
 
 ```{r}
 # Data visualization

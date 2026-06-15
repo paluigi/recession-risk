@@ -1,0 +1,100 @@
+---
+title: "Methodology"
+subtitle: "Hierarchical Bayesian Logit Framework for Nowcasting Recession Risk"
+author: "Automated Report"
+bibliography: references.bib
+format:
+  html:
+    toc: true
+    code-fold: true
+    number-sections: true
+---
+
+This document describes the econometric and statistical methodology used to nowcast recession risk in the Euro Area and its four main member states: Germany (DE), France (FR), Italy (IT), and Spain (ES). The framework is based on the methodology proposed by @Furno2024, extended here to a hierarchical multi-country setting.
+
+## The Nowcasting Problem
+
+A central challenge in macroeconomic monitoring is the timely detection of business cycle turning points. Dating committees, such as the National Bureau of Economic Research (NBER) in the United States and the Centre for Economic Policy Research (CEPR) in the Euro Area, officially announce recessions with a delay of several months or even years. Official quarterly Gross Domestic Product (GDP) figures are also published with a lag of several weeks and are subject to subsequent revisions.
+
+To address these limitations, we formulate a model to **nowcast** the probability that a country is in a recession during the current quarter. Unlike standard forecasting models that predict future recessions over a horizon $h > 0$ (e.g., @estrella1998predicting), nowcasting focuses on estimating the state of the economy at the present moment $h = 0$ (see @giannone2008nowcasting and @banbura2013nowcasting).
+
+## Model Specification
+
+Let $y_{i,t} \in \{0, 1\}$ be a binary indicator representing whether geography $i$ is in a recession at quarter $t$. The probability of recession is denoted by:
+$$ p_{i,t} = P(y_{i,t} = 1 \mid \mathbf{x}_{i,t}) $$
+
+We model $y_{i,t}$ using a **Hierarchical Bayesian Logit** regression. The log-odds (logit) of being in a recession is a linear function of a macroeconomic indicator and a financial indicator:
+
+$$ \text{logit}(p_{i,t}) = \ln\left(\frac{p_{i,t}}{1 - p_{i,t}}\right) = \alpha_i + \beta_{1,i} \text{CISS}_{i,t} + \beta_{2,i} \text{ESI}_{i,t} $$
+
+where:
+- $\text{CISS}_{i,t}$ is the standardized Composite Indicator of Systemic Stress for geography $i$.
+- $\text{ESI}_{i,t}$ is the standardized Economic Sentiment Indicator for geography $i$.
+
+### Hierarchical Structure
+
+A key feature of our approach is the hierarchical pooling of parameters across countries. Rather than estimating independent models for each country or a single pooled model that assumes identical relationships, the hierarchical model assumes that country-specific parameters are drawn from a shared global distribution:
+
+$$ \alpha_i = \alpha_0 + u_{0,i} $$
+$$ \beta_{1,i} = \beta_1 + u_{1,i} $$
+$$ \beta_{2,i} = \beta_2 + u_{2,i} $$
+
+where:
+- $\alpha_0$ represents the global average intercept.
+- $\beta_1$ and $\beta_2$ represent the global average effects of the financial stress indicator (CISS) and macroeconomic sentiment (ESI), respectively.
+- $\mathbf{u}_i = (u_{0,i}, u_{1,i}, u_{2,i})'$ is a vector of geography-specific random effects.
+
+We assume that the country-specific deviations are normally distributed:
+$$ \mathbf{u}_i \sim \mathcal{N}(\mathbf{0}, \mathbf{\Sigma}) $$
+
+The covariance matrix $\mathbf{\Sigma}$ captures the variability of the intercepts and slopes across geographies, as well as the correlations between them:
+$$ \mathbf{\Sigma} = \text{diag}(\boldsymbol{\sigma}) \, \mathbf{R} \, \text{diag}(\boldsymbol{\sigma}) $$
+where $\boldsymbol{\sigma} = (\sigma_{\alpha}, \sigma_{\beta_1}, \sigma_{\beta_2})'$ are the standard deviations of the random effects, and $\mathbf{R}$ is the correlation matrix.
+
+This hierarchical structure allows for "shrinkage," which pulls country-specific estimates toward the Euro Area average. This is particularly beneficial for countries with short sample histories or fewer recession observations, as the model borrows statistical power from the rest of the group.
+
+## Data and Variables
+
+### Target Variable: Technical Recession
+
+Following standard convention, we define a technical recession as **two consecutive quarters of negative quarter-on-quarter real GDP growth**:
+
+$$ y_{i,t} = \begin{cases} 
+1 & \text{if } \Delta \text{GDP}_{i,t} < 0 \text{ and } \Delta \text{GDP}_{i,t-1} < 0 \\ 
+0 & \text{otherwise} 
+\end{cases} $$
+
+where $\Delta \text{GDP}_{i,t}$ represents the percentage growth rate of seasonally and calendar adjusted real GDP for country $i$ in quarter $t$.
+
+### Predictor Variables
+
+1. **Economic Sentiment Indicator (ESI)**: Sourced from Eurostat, the ESI is a composite indicator made up of five sectoral confidence indicators with different weights (industrial, services, consumer, construction, and retail trade). It serves as a timely tracker of macroeconomic sentiment.
+2. **Composite Indicator of Systemic Stress (CISS)**: Developed by @hollo2012ciss and sourced from the European Central Bank, the CISS measures the level of systemic stress in the financial system. It aggregates indicators across five market segments (money, equity, bond, foreign exchange, and financial intermediaries) using portfolio theory to weight segments by their correlation. This captures the systemic dimension of financial stress, which has been shown to be a crucial driver of economic downside risks (@adrian2019vulnerable).
+
+Prior to estimation, both predictors are scaled (mean-centered and divided by their standard deviation) to facilitate MCMC convergence.
+
+## Bayesian Estimation and Priors
+
+The model is estimated using Markov Chain Monte Carlo (MCMC) methods via the `brms` package in R, which interface with Stan. We specify weakly informative priors for the parameters to stabilize estimation while letting the data dominate the posterior:
+
+### Population-Level (Fixed) Effects
+- Global Intercept: $\alpha_0 \sim \mathcal{N}(0, 5)$
+- Global Slopes: $\beta_k \sim \mathcal{N}(0, 2)$ for $k \in \{1, 2\}$
+
+These priors are conservative; they restrict coefficients to plausible ranges while remaining flat enough over the regions of high likelihood.
+
+### Group-Level (Random) Effects
+- Standard deviations: $\sigma \sim \text{Student-}t(3, 0, 2.5)$ (truncated to positive values)
+- Correlation matrix: $\mathbf{R} \sim \text{LKJ}(1)$
+
+The LKJ prior with $\eta = 1$ is uniform over all correlation matrices, representing a neutral prior belief about the correlations between random intercepts and slopes.
+
+## Inference and Out-of-Sample Evaluation
+
+The model is fitted on training data up to a cutoff date representing the maximum available data minus 5 years. This allows us to perform out-of-sample inference on the last 5 years. 
+
+For each quarter $t$, we compute the posterior probability distribution of $p_{i,t}$. The central estimate is the posterior mean:
+$$ \hat{p}_{i,t} = \mathbb{E}[p_{i,t} \mid \text{Data}] $$
+We also construct 95% Bayesian credible intervals using the 2.5th and 97.5th percentiles of the posterior distribution to represent model uncertainty.
+
+## References

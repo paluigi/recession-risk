@@ -1,0 +1,187 @@
+Finally, the digital revolution is opening new exciting frontiers thanks to the availability of high-frequency
+data from various domains, also known as “alternative data”. An example is internet search data, which
+can be used to augment real-time business cycle dating–among others, Ferrara and Simoni (2023) leverage Google search data to nowcast GDP. Another example is given by natural language processing (NLP),
+which leverages increasingly more sophisticated techniques to construct quantitative measures out of unstructured text data. A couple of papers connecting the distribution of GDP growth to text-based predictors
+are Hengge (2019) and Sharpe, Sinha and Hollrah (2023). Thanks to recent progress in Large Language
+Models (LLMs) and Generative-AI, our ability to process vast amount of existing textual data will increase
+significantly and will lead to the discovery of new insights. High-frequency transactions also present an
+exciting opportunity to measure economic activity at a much higher frequency than it was ever possible
+before. For example, Buda, Hansen, Rodrigo, Carvalho, Ortiz and Rodríguez Mora (2023) aggregate credit
+card data to successfully approximate official consumption statistics for the Spanish economy.
+Finally, while this chapter focuses on recessions, the methodologies discussed can be also used to nowcast
+and forecast other important events. One example could be financial crises in specific countries or geographical areas, where data from the cross-section of countries can partially offset the low frequency at
+which large but important events occur.
+
+References
+Adams, Patrick A, Tobias Adrian, Nina Boyarchenko, and Domenico Giannone (2021) “Forecasting macroeconomic risks,” International Journal of Forecasting, 37 (3), 1173–1191.
+Adams, Patrick A, Tobias Adrian, Nina Boyarchenko, Domenico Giannone, J Nellie Liang, and Eric Qian
+(2020) “What Do Financial Conditions Tell Us about Risks to GDP Growth?”Technical report, Federal
+Reserve Bank of New York.
+Adrian, Tobias, Nina Boyarchenko, and Domenico Giannone (2019) “Vulnerable growth,” American Economic Review, 109 (4), 1263–89.
+(2021) “Multimodality in macrofinancial dynamics,” International Economic Review, 62 (2), 861–886.
+Adrian, Tobias, Fernando Duarte, and Tara Iyer (2023) The Market Price of Risk and Macro-financial Dynamics:
+Centre for Economic Policy Research.
+Adrian, Tobias, Federico Grinberg, Nellie Liang, Sheheryar Malik, and Jie Yu (2022) “The term structure of
+growth-at-risk,” American Economic Journal: Macroeconomics, 14 (3), 283–323.
+Ajello, Andrea, Michele Cavallo, Giovanni Favara, William B Peterman, John W Schindler IV, and Nitish R
+Sinha (2023) “A New Index to Measure US Financial Conditions,” FEDS Notes.
+Amburgey, Aaron J and Michael W McCracken (2023) “On the real-time predictive content of financial
+condition indices for growth,” Journal of Applied Econometrics, 38 (2), 137–163.
+Bańbura, Marta, Domenico Giannone, Michele Modugno, and Lucrezia Reichlin (2013) “Now-casting and
+the real-time data flow,” in Handbook of economic forecasting, 2, 195–237: Elsevier.
+
+24
+
+Barnichon, Regis, Christopher J Nekarda, Jan Hatzius, Sven Jari Stehn, and Barbara Petrongolo (2012) “The
+ins and outs of forecasting unemployment: Using labor force flows to forecast the labor market [with
+comments and discussion],” Brookings Papers on Economic Activity, 83–131.
+Bellégo, Christophe and Laurent Ferrara (2012) “Macro-financial linkages and business cycles: A factoraugmented probit approach,” Economic Modelling, 29 (5), 1793–1797.
+Berge, Travis J and Òscar Jordà (2011) “Evaluating the classification of economic activity into recessions and
+expansions,” American Economic Journal: Macroeconomics, 3 (2), 246–277.
+Bok, Brandyn, Daniele Caratelli, Domenico Giannone, Argia M Sbordone, and Andrea Tambalotti (2018)
+“Macroeconomic nowcasting and forecasting with big data,” Annual Review of Economics, 10, 615–643.
+Boyarchenko, Nina, Domenico Giannone, and Anna Kovner (2020) “Bank capital and real GDP growth,”
+FRB of New York Staff Report (950).
+Brier, Glenn W (1950) “Verification of forecasts expressed in terms of probability,” Monthly weather review,
+78 (1), 1–3.
+Bry, Gerhard and Charlotte Boschan (1971) “Programmed selection of cyclical turning points,” in Cyclical
+analysis of time series: Selected procedures and computer programs, 7–63: NBER.
+Buda, Gergely, Stephen Hansen, Tomasa Rodrigo, Vasco M Carvalho, Álvaro Ortiz, and José V Rodríguez Mora (2023) “National accounts in a world of naturally occurring data: a proof of concept for
+consumption.”
+Burns, Arthur F and Wesley C Mitchell (1946) Measuring business cycles: National bureau of economic research.
+Caldara, Dario, Danilo Cascaldi-Garcia, Pablo Cuba-Borda, and Francesca Loria (2021a) “Understanding
+growth-at-risk: A Markov switching approach,” Available at SSRN 3992793.
+Caldara, Dario, Chiara Scotti, and Molin Zhong (2021b) “Macroeconomic and financial risks: A tale of mean
+and volatility,” International Finance Discussion Paper (1326).
+Carriero, Andrea, Todd E Clark, and Massimiliano Giuseppe Marcellino (2020) “Capturing macroeconomic
+tail risks with Bayesian vector autoregressions.”
+Cascaldi-Garcia, Danilo, Matteo Luciani, and Michele Modugno (2023) “Lessons from Nowcasting GDP
+across the World,” International Finance Discussion Paper (1385).
+Chauvet, Marcelle (1998) “An Econometric Characterization of Business Cycle Dynamics with Factor Structure and Regime Switching,” International Economic Review, 39 (4), 969–996, http://www.jstor.org/
+
+stable/2527348.
+Chauvet, Marcelle and James D Hamilton (2006) “Dating business cycle turning points,” Contributions to
+Economic Analysis, 276, 1–54.
+Chauvet, Marcelle and Jeremy Piger (2008) “A comparison of the real-time performance of business cycle
+dating methods,” Journal of Business & Economic Statistics, 26 (1), 42–49.
+
+25
+
+Chauvet, Marcelle and Simon Potter (2005) “Forecasting recessions using the yield curve,” Journal of forecasting, 24 (2), 77–103.
+Chavleishvili, Sulkhan and Manfred Kremer (2023) “Measuring systemic financial stress and its risks for
+growth,”Technical report.
+Chernis, Tony, Patrick J Coe, and Shaun P Vahey (2023) “Reassessing the dependence between economic
+growth and financial conditions since 1973,” Journal of Applied Econometrics, 38 (2), 260–267.
+Chernozhukov, Victor, Iván Fernández-Val, and Blaise Melly (2013) “Inference on counterfactual distributions,” Econometrica, 81 (6), 2205–2268.
+Croushore, Dean and Tom Stark (2001) “A real-time data set for macroeconomists,” Journal of econometrics,
+105 (1), 111–130.
+Crump,
+
+Richard,
+
+Domenico
+
+Giannone,
+
+and
+
+David
+
+Leaves of the U.S. Business Cycle—Part One,”
+
+Lucca
+
+(2020a)
+
+“Reading
+
+the
+
+Tea
+
+Federal Reserve Bank of New York Lib-
+
+https://libertystreeteconomics.newyorkfed.org/2020/02/
+reading-the-tea-leaves-of-the-us-business-cyclepart-one.html.
+erty
+
+Street
+
+Economics,
+
+(2020b) “Reading the Tea Leaves of the U.S. Business Cycle—Part Two,” Federal Reserve Bank
+of New York Liberty Street Economics, https://libertystreeteconomics.newyorkfed.org/2020/02/
+
+reading-the-tea-leaves-of-the-us-business-cyclepart-one.html.
+Doz, Catherine, Laurent Ferrara, and Pierre-Alain Pionnier (2020) “Business cycle dynamics after the great
+recession: an extended markov-switching dynamic factor model.”
+Doz, Catherine and Anna Petronevich (2016) “Dating business cycle turning points for the french economy:
+An MS-DFM approach,” in Dynamic Factor Models, 481–538: Emerald Group Publishing Limited.
+Estrella, Arturo and Gikas A Hardouvelis (1991) “The term structure as a predictor of real economic activity,” The journal of Finance, 46 (2), 555–576.
+Estrella, Arturo and Frederic S Mishkin (1998) “Predicting US recessions: Financial variables as leading
+indicators,” Review of Economics and Statistics, 80 (1), 45–61.
+Fagan, Gabriel, Jerome Henry, and Ricardo Mestre (2005) “An area-wide model for the euro area,” Economic
+Modelling, 22 (1), 39–59.
+Favara, Giovanni, Simon Gilchrist, Kurt F Lewis, and Egon Zakrajšek (2016) “Updating the recession risk
+and the excess bond premium.”
+Fawcett, Tom (2006) “An introduction to ROC analysis,” Pattern recognition letters, 27 (8), 861–874.
+Ferrara, Laurent and Anna Simoni (2023) “When are Google data useful to nowcast GDP? An approach via
+preselection and shrinkage,” Journal of Business & Economic Statistics, 41 (4), 1188–1202.
+Figueres, Juan Manuel and Marek Jarociński (2020) “Vulnerable growth in the euro area: Measuring the
+financial conditions,” Economics Letters, 191, 109126.
+Galvão, Ana Beatriz and Michael Owyang (2022) “Forecasting low-frequency macroeconomic events with
+high-frequency data,” Journal of Applied Econometrics, 37 (7), 1314–1333.
+
+26
+
+Giannone, Domenico, Jérôme Henry, Magdalena Lalik, and Michele Modugno (2012) “An area-wide realtime database for the euro area,” Review of Economics and Statistics, 94 (4), 1000–1013.
+Giannone, Domenico, Lucrezia Reichlin, and David Small (2008) “Nowcasting: The real-time informational
+content of macroeconomic data,” Journal of monetary economics, 55 (4), 665–676.
+Gilchrist, Simon and Egon Zakrajšek (2012) “Credit spreads and business cycle fluctuations,” American
+economic review, 102 (4), 1692–1720.
+Hamilton, James D (1989) “A new approach to the economic analysis of nonstationary time series and the
+business cycle,” Econometrica: Journal of the econometric society, 357–384.
+(2011) “Calling recessions in real time,” International journal of forecasting, 27 (4), 1006–1026.
+Harding, Don and Adrian Pagan (2002) “Dissecting the cycle: a methodological investigation,” Journal of
+monetary economics, 49 (2), 365–381.
+(2006) “Synchronization of cycles,” Journal of econometrics, 132 (1), 59–79.
+Hengge, Martina (2019) “Uncertainty as a predictor of economic activity.”
+Hollo, Daniel, Manfred Kremer, and Marco Lo Duca (2012) “CISS-a composite indicator of systemic stress
+in the financial system.”
+Kauppi, Heikki and Pentti Saikkonen (2008) “Predicting US recessions with dynamic binary response models,” The Review of Economics and Statistics, 90 (4), 777–791.
+Koenker, Roger, Samantha Leorato, and Franco Peracchi (2013) “Distributional vs. quantile regression.”
+Lahiri, Kajal and George Monokroussos (2013) “Nowcasting US GDP: The role of ISM business surveys,”
+International Journal of Forecasting, 29 (4), 644–658.
+Lahiri, Kajal and J George Wang (2013) “Evaluating probability forecasts for GDP declines using alternative
+methodologies,” International Journal of Forecasting, 29 (1), 175–190.
+Lahiri, Kajal and Cheng Yang (2023) “ROC and PRC Approaches to Evaluate Recession Forecasts,” Journal
+of Business Cycle Research, 1–30.
+Lahiri, Kajal and Liu Yang (2013) “Forecasting binary outcomes,” Handbook of Economic Forecasting, 2, 1025–
+1106.
+Li, Qi, Juan Lin, and Jeffrey S Racine (2013) “Optimal bandwidth selection for nonparametric conditional
+distribution and quantile functions,” Journal of Business & Economic Statistics, 31 (1), 57–65.
+Mitchell, Wesley Clair (1913) Business cycles, 3: University of California Press.
+(1927) Business cycles: The problem and its setting (10): National Bureau of Economic Research.
+Neal, Radford M (2003) “Slice sampling,” The annals of statistics, 31 (3), 705–767.
+Ng, Eric CY (2012) “Forecasting US recessions with various risk factors and dynamic probit models,” Journal
+of Macroeconomics, 34 (1), 112–125.
+
+27
+
+Nyberg, Henri (2010) “Dynamic probit models and financial variables in recession forecasting,” Journal of
+Forecasting, 29 (1-2), 215–230.
+Opschoor, Anne, Dick Van Dijk, and Michel van der Wel (2017) “Combining density forecasts using focused
+scoring rules,” Journal of Applied Econometrics, 32 (7), 1298–1313.
+Peracchi, Franco (2002) “On estimating conditional quantiles and distribution functions,” Computational
+statistics & data analysis, 38 (4), 433–447.
+Sharpe, Steven A, Nitish R Sinha, and Christopher A Hollrah (2023) “The power of narrative sentiment in
+economic forecasts,” International Journal of Forecasting, 39 (3), 1097–1121.
+Stock, James H and Mark W Watson (1989) “New indexes of coincident and leading economic indicators,”
+NBER macroeconomics annual, 4, 351–394.
+(2010) “Modeling inflation after the crisis,”Technical report, National Bureau of Economic Research.
+(2014) “Estimating turning points using large data sets,” Journal of Econometrics, 178, 368–381.
+Wright, Jonathan H (2006) “The yield curve and predicting recessions.”
+
+28
+
+
