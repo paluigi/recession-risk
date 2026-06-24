@@ -4,15 +4,22 @@ subtitle: "Policy Brief & Econometric Report"
 author: "Automated Macroeconomic Monitor"
 date: "June 2026"
 format:
-  docx:
+  pdf:
     toc: true
     number-sections: true
     highlight-style: github
 bibliography: references.bib
+csl: apa.csl
 execute:
   echo: false
   warning: false
   message: false
+---
+
+## Abstract
+
+This brief presents a real-time nowcasting framework for assessing recession risk in the Euro Area (EA) and its four largest member states (Germany, France, Italy, Spain). We extend the hierarchical Bayesian logit model of @Furno2024, combining macroeconomic sentiment (ESI) and financial stress (CISS) indicators. The hierarchical structure pools information across geographies, improving the precision and stability of country-level recession risk estimates.
+
 ---
 
 ## Executive Summary
@@ -182,9 +189,14 @@ The fixed effects (population-level averages) estimated by the model indicate a 
 
 ### Nowcast Visualizations
 
-The chart below shows the estimated recession probabilities along with the 95% Bayesian credible intervals (shaded areas) and historical CEPR/technical recessions (grey shaded bars). The vertical red dashed line separates the in-sample training period from the out-of-sample inference period (the last five years).
+@fig-recession-probabilities shows the estimated recession probabilities along with the 95% Bayesian credible intervals (shaded areas) and historical CEPR/technical recessions (grey shaded bars). The vertical red dashed line separates the in-sample training period from the out-of-sample inference period (the last five years).
 
-```{r plots, fig.width=7, fig.height=9, fig.align='center'}
+```{r}
+#| label: fig-recession-probabilities
+#| fig-cap: "Recession probability estimates and 95% credible intervals for the Euro Area and its major member states. The vertical dashed line separates the in-sample training period from the out-of-sample inference period."
+#| fig-width: 7
+#| fig-height: 9
+#| fig-align: center
 # Function to generate plot
 plot_geo_doc <- function(data, region_name, is_main = FALSE) {
   p_data <- data %>% filter(geo == region_name)
