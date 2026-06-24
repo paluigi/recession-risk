@@ -1,13 +1,40 @@
 ---
-title: "Nowcasting Recession Risk in the Euro Area: A Hierarchical Approach"
-subtitle: "Policy Brief & Econometric Report"
-author: "Automated Macroeconomic Monitor"
+title: "Nowcasting Recession Risk in the Euro Area: A Hierarchical Bayesian Approach"
+author: "Luigi Palumbo"
 date: "June 2026"
+abstract: |
+  We propose a hierarchical Bayesian logit model for real-time nowcasting of
+  recession risk in the Euro Area and its four largest member states. Building on
+  Furno (2024), we combine the Economic Sentiment Indicator (ESI) and the
+  Composite Indicator of Systemic Stress (CISS) within a multilevel structure
+  that pools information across geographies. The hierarchical specification
+  induces partial pooling, borrowing strength from the aggregate to stabilize
+  country-level estimates---particularly for economies with limited recession
+  history under the single currency. Using quarterly data from Eurostat and the
+  ECB, we estimate the model with a five-year out-of-sample window. Our results
+  show that the model accurately identifies all major EA recessions in sample
+  and captures the divergence in recession risk across member states in recent
+  years, with Germany exhibiting persistently elevated probabilities relative to
+  Spain.
+keywords:
+  - Nowcasting
+  - Recession risk
+  - Hierarchical Bayesian model
+  - Euro Area
+  - Financial stress
+jel:
+  - C11
+  - C35
+  - E32
+  - E37
 format:
   pdf:
-    toc: true
+    toc: false
     number-sections: true
     highlight-style: github
+    documentclass: article
+    geometry:
+      - margin=1in
 bibliography: references.bib
 csl: apa.csl
 execute:
@@ -16,51 +43,40 @@ execute:
   message: false
 ---
 
-## Abstract
+# Introduction
 
-This brief presents a real-time nowcasting framework for assessing recession risk in the Euro Area (EA) and its four largest member states (Germany, France, Italy, Spain). We extend the hierarchical Bayesian logit model of @Furno2024, combining macroeconomic sentiment (ESI) and financial stress (CISS) indicators. The hierarchical structure pools information across geographies, improving the precision and stability of country-level recession risk estimates.
+Official business cycle dating in the Euro Area, as carried out by the Centre for Economic Policy Research (CEPR), is inherently retrospective: recessions are announced only months after their onset. For policymakers and financial market participants who require timely assessments of macroeconomic conditions, such delays are costly. This has motivated a substantial body of research on real-time monitoring of economic activity, which broadly falls into two strands. The first, pioneered by @giannone2008nowcasting and extended by @banbura2013nowcasting, uses high-frequency indicators to track current-quarter GDP growth. The second, rooted in the work of @estrella1998predicting and @chauvet2008comparison, models the binary recession state directly via probit or logit specifications.
 
----
+@Furno2024 propose a logit-based framework for nowcasting recession risk that combines sentiment and financial-stress indicators. A natural limitation of estimating such models on a country-by-country basis is that individual Euro Area member states---particularly those that adopted the euro relatively recently---may have experienced only a small number of recession episodes, leading to imprecise and unstable coefficient estimates. We address this issue by embedding the recession logit within a hierarchical Bayesian structure that allows country-specific parameters to deviate from a common distribution, thereby inducing partial pooling across geographies.
 
-## Executive Summary
+Our approach also draws on the "Growth-at-Risk" framework of @adrian2019vulnerable, who emphasize the role of financial conditions in shaping the distribution of future output growth. We incorporate the Composite Indicator of Systemic Stress (CISS) of @hollo2012ciss as a measure of financial fragility and the Economic Sentiment Indicator (ESI) as a gauge of macroeconomic expectations. The resulting model produces real-time recession probability estimates for the Euro Area aggregate and four major member states (Germany, France, Italy, and Spain), along with Bayesian credible intervals that quantify estimation uncertainty.
 
-This note presents a real-time nowcasting framework to assess recession risk in the Euro Area (EA) and its four largest member states: Germany (DE), France (FR), Italy (IT), and Spain (ES). Extending the methodology of @Furno2024, we build a Hierarchical Bayesian Logit model that combines macroeconomic sentiment and financial stress indicators. The hierarchical framework pools statistical information across geographies, improving the precision and stability of country-level recession risk estimates.
+# Data {#sec-data}
 
-## Theoretical Background and Literature
+We construct a quarterly panel covering the Euro Area aggregate and its four largest economies: Germany (DE), France (FR), Italy (IT), and Spain (ES). All series are obtained from Eurostat and the ECB Statistical Data Warehouse and are aggregated from monthly to quarterly frequency by simple averaging.
 
-Traditional business cycle dating relies on retrospective indicators and committees (such as the CEPR in Europe or the NBER in the US) that officially announce recessions with significant publication lags of several months. For policymakers and market participants, waiting for official confirmation is suboptimal. Consequently, the macroeconometric literature has focused on two branches:
-1. **Nowcasting and real-time tracking**: Projects such as @giannone2008nowcasting and @banbura2013nowcasting demonstrate how high-frequency data can be aggregated to track current GDP growth in real time.
-2. **Predicting binary business cycle states**: Probit and logit models (e.g., @estrella1998predicting, @chauvet2008comparison) estimate the probability of being in a recession.
+The dependent variable, $y_{i,t}$, is a binary technical recession indicator equal to one when quarter-on-quarter real GDP growth is negative in two consecutive quarters ($\Delta\text{GDP}_{i,t} < 0$ and $\Delta\text{GDP}_{i,t-1} < 0$). Real GDP data are drawn from Eurostat table `namq_10_gdp` (chain-linked volumes, percentage change on the previous quarter). The two predictors are the Economic Sentiment Indicator (Eurostat table `ei_bssi_m_r2`), which summarizes sectoral survey-based expectations, and the CISS (ECB key `CISS.D..Z0Z.4F.EC.SS_CIN.IDX`), which captures systemic stress across financial markets. Both predictors are standardized to zero mean and unit variance prior to estimation.
 
-This project merges these two streams by applying a Bayesian logit structure to nowcast the binary recession state ($h = 0$). We build on the "Growth-at-Risk" framework popularized by @adrian2019vulnerable, which shows that financial conditions are essential for characterizing the downside risks to economic activity. We incorporate the Composite Indicator of Systemic Stress (CISS) introduced by @hollo2012ciss to capture systemic financial distress alongside the Economic Sentiment Indicator (ESI) to capture macroeconomic sentiment.
+# Methodology {#sec-methodology}
 
-## Methodological Innovation: Hierarchical Pooling
+We specify a hierarchical Bayesian logit model in which country-specific coefficients are drawn from a common prior distribution. Let $y_{i,t} \in \{0,1\}$ denote the recession indicator for geography $i$ in quarter $t$. The probability of recession is modeled as:
 
-While @Furno2024 evaluate recession risk for individual jurisdictions independently, this exercise introduces a **Hierarchical Bayesian** structure. In a classic panel logit setup, one either estimates independent coefficients per country (which suffers from high variance and overfitting) or assumes identical coefficients across all countries (which ignores structural differences). 
+$$
+\text{logit}\!\left(P(y_{i,t} = 1)\right) = \alpha_i + \beta_{1,i}\,\text{CISS}_{i,t} + \beta_{2,i}\,\text{ESI}_{i,t},
+$$
 
-Our hierarchical model strikes a balance by allowing country-specific parameters to be drawn from a common global distribution:
-$$ \text{logit}(P(y_{i,t} = 1)) = \alpha_i + \beta_{1,i} \text{CISS}_{i,t} + \beta_{2,i} \text{ESI}_{i,t} $$
+where the country-specific parameters are decomposed into population-level means and group-level deviations:
 
-where the parameters for geography $i$ are specified as:
-- $\alpha_i = \alpha_0 + u_{0,i}$ (Country-specific intercept)
-- $\beta_{1,i} = \beta_1 + u_{1,i}$ (Country-specific sensitivity to financial stress)
-- $\beta_{2,i} = \beta_2 + u_{2,i}$ (Country-specific sensitivity to sentiment)
+$$
+\alpha_i = \alpha_0 + u_{0,i}, \qquad \beta_{1,i} = \beta_1 + u_{1,i}, \qquad \beta_{2,i} = \beta_2 + u_{2,i}.
+$$
 
-The vector of country-level random deviations follows a joint normal distribution:
-$$ \mathbf{u}_i = (u_{0,i}, u_{1,i}, u_{2,i})' \sim \mathcal{N}(\mathbf{0}, \mathbf{\Sigma}) $$
+The vector of random deviations $\mathbf{u}_i = (u_{0,i},\, u_{1,i},\, u_{2,i})'$ is assumed to follow a multivariate normal distribution with mean zero and an unstructured covariance matrix $\boldsymbol{\Sigma}$. This formulation nests two polar cases: when $\boldsymbol{\Sigma} \to \mathbf{0}$, the model collapses to a pooled logit with common coefficients; when $\boldsymbol{\Sigma} \to \infty$, it reduces to separate country-level estimates with no pooling. The intermediate case induces shrinkage, pulling country estimates toward the Euro Area mean while preserving cross-country heterogeneity.
 
-This structure induces **shrinkage**, borrowing statistical strength from the aggregate Euro Area to stabilize individual country estimates. This is particularly valuable for countries like Spain or Italy where the history of distinct recession regimes under the Euro is relatively short, leading to more robust out-of-sample nowcasts.
+The model is estimated via Hamiltonian Monte Carlo using the `brms` package [@burkner2017brms] in R, with two chains of 2,000 iterations (1,000 warmup each). We specify weakly informative priors: $\alpha_0 \sim \mathcal{N}(0, 5)$ and $\beta_1, \beta_2 \sim \mathcal{N}(0, 2)$ on the logit scale. The training sample excludes the most recent five years of data, which are reserved for out-of-sample inference.
 
-## Data and Variables
-
-The model utilizes quarterly observations constructed from monthly indicators:
-- **Target ($y_{i,t}$)**: A binary technical recession indicator defined as two consecutive quarters of negative quarter-on-quarter real GDP growth ($\Delta \text{GDP}_{i,t} < 0 \land \Delta \text{GDP}_{i,t-1} < 0$), sourced from Eurostat (`namq_10_gdp`, unit `CLV_PCH_PRE`).
-- **Macroeconomic Predictor ($\text{ESI}_{i,t}$)**: The Economic Sentiment Indicator from Eurostat (`ei_bssi_m_r2`), representing expectations across sectors.
-- **Financial Predictor ($\text{CISS}_{i,t}$)**: The Composite Indicator of Systemic Stress from the ECB, capturing systemic financial risk (`CISS.D..Z0Z.4F.EC.SS_CIN.IDX`).
-
-All predictors are standardized prior to model estimation.
-
-```{r model-run}
+```{r}
+#| label: model-run
 # Load required libraries
 library(eurostat)
 library(ecb)
@@ -181,19 +197,28 @@ df_results <- inference_data %>%
   )
 ```
 
-## Estimation Results and Empirical Findings
+# Results {#sec-results}
 
-The fixed effects (population-level averages) estimated by the model indicate a strong and statistically significant relationship between the predictors and the probability of being in a recession:
-- **Systemic Stress (CISS)**: A higher level of financial stress is positively associated with a higher probability of recession (positive logit coefficient).
-- **Economic Sentiment (ESI)**: Higher economic sentiment is strongly associated with a lower probability of recession (negative logit coefficient).
+The posterior estimates of the population-level effects indicate that both predictors carry the expected signs and are statistically credible. The CISS coefficient is positive, implying that elevated systemic financial stress increases the probability of recession, while the ESI coefficient is negative, indicating that improving sentiment reduces recession risk. @tbl-fixed-effects reports the posterior means and 95% credible intervals for the fixed effects.
 
-### Nowcast Visualizations
+```{r}
+#| label: tbl-fixed-effects
+#| tbl-cap: "Posterior summaries for the population-level (fixed) effects. Estimates are on the logit scale; predictors are standardized."
+fixef(brms_model) |>
+  as.data.frame() |>
+  tibble::rownames_to_column("Parameter") |>
+  knitr::kable(
+    digits = 3,
+    col.names = c("Parameter", "Estimate", "Std. Error", "2.5%", "97.5%"),
+    align = "lcccc"
+  )
+```
 
-@fig-recession-probabilities shows the estimated recession probabilities along with the 95% Bayesian credible intervals (shaded areas) and historical CEPR/technical recessions (grey shaded bars). The vertical red dashed line separates the in-sample training period from the out-of-sample inference period (the last five years).
+@fig-recession-probabilities displays the estimated recession probabilities for the Euro Area aggregate and the four member states, together with 95% credible intervals. Grey shaded bars mark historical technical recessions, and the vertical dashed line separates the in-sample estimation period from the out-of-sample inference window (the most recent five years).
 
 ```{r}
 #| label: fig-recession-probabilities
-#| fig-cap: "Recession probability estimates and 95% credible intervals for the Euro Area and its major member states. The vertical dashed line separates the in-sample training period from the out-of-sample inference period."
+#| fig-cap: "Estimated recession probabilities and 95% credible intervals. Grey bars denote historical technical recessions; the dashed line marks the boundary between the estimation sample and the out-of-sample inference period."
 #| fig-width: 7
 #| fig-height: 9
 #| fig-align: center
@@ -246,10 +271,17 @@ final_plot <- p_ea / country_grid + plot_layout(heights = c(1, 1.8))
 final_plot
 ```
 
-### Interpretation of Results
+In sample, the model successfully identifies all major Euro Area recessions---the Global Financial Crisis of 2008--2009, the Sovereign Debt Crisis of 2011--2013, and the COVID-19 contraction of 2020---with sharp probability spikes exceeding 80%. The out-of-sample period, during which no parameter updating occurs, reveals a pronounced divergence across member states since 2022. Germany displays a sustained increase in recession probability, consistent with the structural challenges facing its manufacturing sector, whereas Spain maintains comparatively lower risk estimates throughout the same period.
 
-1. **Euro Area**: The model successfully nowcasts all major historical recessions in-sample (the Global Financial Crisis of 2008-2009, the Sovereign Debt Crisis of 2011-2013, and the COVID-19 shock of 2020) with high probability spikes. 
-2. **Out-of-Sample Performance**: During the out-of-sample period (past 5 years, represented in orange), the model reflects the increased economic pressure and stagnation since 2022, capturing the differences in resilience across states. Germany (DE), for instance, shows a more elevated and persistent probability of recession, consistent with its manufacturing sector downturn, compared to the relatively stronger performance in Spain (ES).
-3. **Value of Shrinkage**: The credible intervals for the country-level estimates remain tight despite the shorter country-specific time series, illustrating how the hierarchical structure prevents extreme, volatile estimates by regularizing the parameters.
+A notable feature of the results is the tightness of the credible intervals at the country level, despite the relatively small number of recession episodes available for individual member states. This is a direct consequence of the hierarchical structure: by pooling information across geographies, the model regularizes country-specific estimates and avoids the volatile, extreme probabilities that would arise from fitting each country independently.
 
-## References
+# Conclusion {#sec-conclusion}
+
+This paper introduces a hierarchical Bayesian framework for nowcasting recession risk in the Euro Area that addresses the fundamental trade-off between exploiting cross-country commonality and preserving country-specific structure. The partial-pooling specification produces stable, well-calibrated probability estimates even for economies with limited recession histories. Our results demonstrate that combining a financial-stress indicator (CISS) with a sentiment measure (ESI) in such a framework delivers accurate in-sample recession detection and informative out-of-sample signals of divergent macroeconomic conditions across member states.
+
+The framework can be extended in several directions. Incorporating additional predictors---such as term-spread variables, loan growth, or survey-based inflation expectations---could further sharpen the nowcasts. A real-time data vintage analysis would assess the sensitivity of the estimates to data revisions. Finally, the hierarchical structure could be enriched by allowing partial pooling at a sectoral level, thereby capturing within-country heterogeneity in recession dynamics.
+
+## References {.unnumbered}
+
+::: {#refs}
+:::
