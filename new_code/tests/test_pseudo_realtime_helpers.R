@@ -177,6 +177,19 @@ check("dm p in (0,1)", dm$p_value > 0 && dm$p_value < 1)
 dm0 <- env$diebold_mariano_test(l1, l1, lag.order = 1L)
 check("dm identical losses stat 0", abs(dm0$mean_loss_diff) < 1e-12)
 
+# Hand-computed Newey-West verification (lag 1):
+d <- l1 - l2
+dbar <- mean(d)
+dc <- d - dbar
+g0 <- mean(dc^2)
+g1 <- mean(dc[2:6] * dc[1:5])
+hac_manual <- (g0 + 2 * (1 - 1/2) * g1) / 6
+dm_manual <- dbar / sqrt(hac_manual)
+check_equal("dm statistic matches manual Newey-West",
+            dm$dm_statistic, dm_manual)
+check_equal("dm harvey factor sqrt((n-1)/n) for h=1",
+            dm$harvey_statistic, dm_manual * sqrt((6 - 1) / 6))
+
 # too few observations
 dmn <- env$diebold_mariano_test(c(1, 2), c(2, 1))
 check("dm n<3 returns NA", is.na(dmn$p_value) && dmn$n_obs == 2L)

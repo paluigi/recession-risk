@@ -81,4 +81,5 @@ quarto preview
     area and pooled, and Diebold-Mariano tests (HAC + Harvey correction)
     of whether either specification forecasts better. See
     `new_code/data_sources_pseudo_realtime.md` for the full source
-    documentation and `new_code/tests/` for the unit and smoke tests.
+    documentation and `new_code/tests/` for the test suites
+    (`run_all_tests.R`; add `--with-live` for the OECD live smoke test).
