@@ -68,3 +68,17 @@ quarto preview
 - `recession-index.R`: Standalone R script for processing and estimation.
 - `references.bib`: Bibliographical database containing the citation entries.
 - `reference/`: Folder containing the reference paper PDF.
+- `new_code/`: Alternative specifications and real-time evaluation experiments.
+  - `recessione_CISS_ESI.R`: production model, CISS + ESI predictors.
+  - `recessione_CISS_PMI_composito.R`: production model, CISS + composite PMI
+    predictors (S&P Global workbook, production environment only).
+  - `robustness_real_time_vs_latest_EA_CISS_{ESI,PMI}.R`: EA-only real-time
+    vs latest-vintage comparisons for each specification.
+  - `pseudo_realtime_ESI_vs_PMI.R`: **pseudo-real-time backtest comparing
+    the ESI and PMI specifications head-to-head** on the Euro Area and DE,
+    FR, IT, ES with real GDP vintages (Eurostat `ei_na_q_vtg` for the EA,
+    OECD MEI vintage editions for countries), Brier/log/AUC scores per
+    area and pooled, and Diebold-Mariano tests (HAC + Harvey correction)
+    of whether either specification forecasts better. See
+    `new_code/data_sources_pseudo_realtime.md` for the full source
+    documentation and `new_code/tests/` for the unit and smoke tests.
