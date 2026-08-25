@@ -1,0 +1,5 @@
+"comparison","observations","recession_rate","brier_score","log_score","auc"
+"Real-time probability vs contemporaneous GDP-vintage outcome",47,0.0425531914893617,0.0435669636763159,0.156980587496074,0.9
+"Real-time probability vs latest-vintage outcome",47,0.0638297872340425,0.0292642936994109,0.13569436309205,0.856060606060606
+"Latest-vintage in-sample probability vs latest-vintage outcome",111,0.0990990990990991,0.0482431941390362,0.163643854173539,0.943636363636364
+"Latest-vintage probability on the common real-time sample",47,0.0638297872340425,0.0300350111605222,0.137635921474687,0.856060606060606
