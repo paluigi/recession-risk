@@ -187,6 +187,7 @@ CACHE_MODELS <- TRUE
 
 # OECD download controls (the endpoint rate-limits aggressively).
 OECD_EDITIONS_FROM <- "201412"        # first edition month to archive
+OECD_EDITIONS_TO <- NULL              # last edition month; NULL = current
 OECD_CURL_PAUSE <- 8                  # seconds between edition requests
 OECD_MAX_ATTEMPTS <- 6L               # retries per edition (429 backoff)
 OECD_BACKOFF_START <- 45              # first backoff seconds
@@ -582,12 +583,14 @@ oecd_edition_asof_date <- function(edition) {
   as.Date(make_date(year, month, 1L) + months(1))
 }
 
-# Generate the sequence of edition codes from OECD_EDITIONS_FROM to the
-# current month (inclusive).
+# Generate the sequence of edition codes from OECD_EDITIONS_FROM to
+# OECD_EDITIONS_TO (default: the current month, inclusive).
 edition_sequence <- function(from = OECD_EDITIONS_FROM,
-                             to = format(Sys.Date(), "%Y%m")) {
+                             to = OECD_EDITIONS_TO) {
+  if (is.null(to)) to <- format(Sys.Date(), "%Y%m")
   start <- as.Date(paste0(substr(from, 1L, 4L), "-", substr(from, 5L, 6L), "-01"))
   end <- as.Date(paste0(substr(to, 1L, 4L), "-", substr(to, 5L, 6L), "-01"))
+  if (end < start) return(character())
   months_seq <- seq(start, end, by = "month")
   format(months_seq, "%Y%m")
 }
