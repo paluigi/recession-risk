@@ -1,0 +1,2 @@
+"latest_gdp_vintage","observations_in_common","first_common_quarter","last_common_quarter","correlation","mean_probability_revision","mean_absolute_probability_revision","root_mean_squared_probability_revision","maximum_absolute_probability_revision","maximum_revision_quarter","latest_probability_at_maximum_revision","real_time_probability_at_maximum_revision"
+2026-05-13,47,"2014-Q3","2026-Q1",0.993126492071728,0.00982433741953487,0.0167601221981666,0.0235056428756756,0.0885299877978918,"2020-Q3",0.216951092949972,0.305481080747864
