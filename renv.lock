@@ -1205,6 +1205,23 @@
       ],
       "Hash": "ac38e274b5861a4c26095f705bbc0c19"
     },
+    "openxlsx": {
+      "Package": "openxlsx",
+      "Version": "4.2.9",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "Rcpp",
+        "grDevices",
+        "methods",
+        "stats",
+        "stringi",
+        "utils",
+        "zip"
+      ],
+      "Hash": "1c1dadea5109c1c3d92cc1967436a503"
+    },
     "parallelly": {
       "Package": "parallelly",
       "Version": "1.47.0",
@@ -1873,6 +1890,16 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "51dab85c6c98e50a18d7551e9d49f76c"
+    },
+    "zip": {
+      "Package": "zip",
+      "Version": "3.0.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "cli"
+      ],
+      "Hash": "5807bea03035bfdd7535c1d3eb258cb0"
     },
     "zoo": {
       "Package": "zoo",

@@ -1,5 +1,0 @@
-library(ecb)
-print("Attempting to get data...")
-ciss_raw <- get_data("CISS.D..Z0Z.4F.EC.SS_CIN.IDX")
-print(dim(ciss_raw))
-print(head(ciss_raw))

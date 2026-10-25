@@ -306,6 +306,66 @@ check_equal("pmi Mar15", as.numeric(pm[3]), as.numeric(zoo::as.yearmon("2015-03"
 check("pmi garbage NA", is.na(pm[4]) && is.na(pm[5]))
 
 ###############################################################################
+# RUN PERSISTENCE HELPERS (smoke mode / resume)
+###############################################################################
+
+cat("\n== run persistence helpers ==\n")
+
+runs_dir <- file.path(tempdir(), "persist_check")
+dir.create(runs_dir, recursive = TRUE, showWarnings = FALSE)
+
+ev_date <- as.Date("2020-03-01")
+check("event_run_file path",
+      basename(env$event_run_file(ev_date, runs_dir)) == "event_20200301.csv")
+
+run_rows <- tibble::tibble(
+  approach = c("ESI", "PMI"),
+  event_date = rep(as.Date("2020-03-01"), 2),
+  target_quarter = rep(zoo::as.yearqtr("2020 Q1"), 2),
+  geo = c("EA", "EA"),
+  gdp_growth_vintage = c(-0.3, -0.3),
+  recession_vintage = c(1, 1),
+  ciss_as_of = c(0.21, 0.21),
+  sentiment_as_of = c(94.2, 51.3),
+  training_observations = c(88L, 88L),
+  training_recessions = c(9L, 9L),
+  prob_recession = c(0.42, 0.51),
+  lower_95 = c(0.18, 0.24),
+  upper_95 = c(0.71, 0.79),
+  status = c("ok", "ok"),
+  error_message = NA_character_
+)
+
+csv_path <- env$event_run_file(ev_date, runs_dir)
+utils::write.csv(env$format_event_run_csv(run_rows), csv_path,
+                 row.names = FALSE, na = "")
+roundtrip <- env$read_event_run_csv(csv_path)
+
+check("roundtrip nrow", nrow(roundtrip) == 2L)
+check("roundtrip event_date class", inherits(roundtrip$event_date, "Date"))
+check("roundtrip target_quarter class",
+      inherits(roundtrip$target_quarter, "yearqtr"))
+check_equal("roundtrip target_quarter value",
+            as.numeric(roundtrip$target_quarter[[1]]),
+            as.numeric(zoo::as.yearqtr("2020 Q1")))
+check("roundtrip NA error_message",
+      all(is.na(roundtrip$error_message)))
+check_equal("roundtrip prob preserved", roundtrip$prob_recession[[2]], 0.51)
+
+manifest_file <- file.path(runs_dir, "progress_manifest.csv")
+assign("PROGRESS_MANIFEST_FILE", manifest_file, envir = env)
+assign("smoke_mode", FALSE, envir = env)
+env$append_progress_manifest(ev_date, "fit", "ok", 2L)
+env$append_progress_manifest(as.Date("2020-06-01"), "fit", "error", 0L,
+                             "boom")
+mf <- utils::read.csv(manifest_file, stringsAsFactors = FALSE)
+check("manifest header + 2 rows", nrow(mf) == 2L &&
+        all(c("event_date", "mode", "source", "status", "n_rows",
+              "error_message", "fitted_at") %in% names(mf)))
+check("manifest error row", mf$status[2] == "error" &&
+        mf$error_message[2] == "boom")
+
+###############################################################################
 # SUMMARY
 ###############################################################################
 

@@ -71,7 +71,7 @@ where $\Delta \text{GDP}_{i,t}$ represents the percentage growth rate of seasona
 1. **Economic Sentiment Indicator (ESI)**: Sourced from Eurostat, the ESI is a composite indicator made up of five sectoral confidence indicators with different weights (industrial, services, consumer, construction, and retail trade). It serves as a timely tracker of macroeconomic sentiment.
 2. **Composite Indicator of Systemic Stress (CISS)**: Developed by @hollo2012ciss and sourced from the European Central Bank, the CISS measures the level of systemic stress in the financial system. It aggregates indicators across five market segments (money, equity, bond, foreign exchange, and financial intermediaries) using portfolio theory to weight segments by their correlation. This captures the systemic dimension of financial stress, which has been shown to be a crucial driver of economic downside risks (@adrian2019vulnerable).
 
-Prior to estimation, both predictors are scaled (mean-centered and divided by their standard deviation) to facilitate MCMC convergence.
+Prior to estimation, both predictors are scaled (mean-centered and divided by their standard deviation) to facilitate MCMC convergence. In the production scripts the scaling parameters are computed on the full available sample (a mild look-ahead that only affects the location/scale of the predictors, not their shape); the pseudo-real-time backtest instead computes them on the training window only, so that no post-cutoff information enters the simulated nowcasts.
 
 ## Bayesian Estimation and Priors
 
@@ -87,7 +87,7 @@ These priors are conservative; they restrict coefficients to plausible ranges wh
 - Standard deviations: $\sigma \sim \text{Student-}t(3, 0, 2.5)$ (truncated to positive values)
 - Correlation matrix: $\mathbf{R} \sim \text{LKJ}(1)$
 
-The LKJ prior with $\eta = 1$ is uniform over all correlation matrices, representing a neutral prior belief about the correlations between random intercepts and slopes.
+These are the `brms` defaults used by the production scripts (`new_code/recessione_CISS_ESI.R`, `new_code/recessione_CISS_PMI_composito.R`); they are weakly informative and only regularize extreme values. The LKJ prior with $\eta = 1$ is uniform over all correlation matrices, representing a neutral prior belief about the correlations between random intercepts and slopes. The pseudo-real-time backtest (`new_code/pseudo_realtime_ESI_vs_PMI.R`) instead sets the slightly tighter $\sigma \sim \mathcal{N}(0, 2)$ and $\mathbf{R} \sim \text{LKJ}(2)$ with `adapt_delta = 0.95`, for numerical stability across the many refits of the simulation; this choice affects the backtest comparison only, not the production estimates.
 
 ## Inference and Out-of-Sample Evaluation
 

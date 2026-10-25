@@ -49,10 +49,12 @@ pmi_path <- file.path(smoke_dir, "pmi_servizi_composito.xlsx")
 sheets <- c(CompEMU = "EA", CompGER = "DE", CompFRA = "FR",
             CompITA = "IT", CompSPA = "ES")
 
-# month labels in the workbook style: Jan98 ... (capitalised 3 letters + yy)
+# month labels in the workbook style: Jan98 ... (capitalised 3 letters + yy).
+# month.abb is locale-independent English; months() would follow the system
+# locale (e.g. "gen15" on an Italian host) and break parse_pmi_month.
 month_seq <- seq(as.Date("2015-01-01"), to = Sys.Date(), by = "month")
 month_labels <- paste0(
-  substr(months(month_seq), 1, 3),
+  month.abb[as.integer(format(month_seq, "%m"))],
   format(month_seq, "%y")
 )
 

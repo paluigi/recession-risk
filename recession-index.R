@@ -1,4 +1,4 @@
-k # Install packages if missing
+# Install packages if missing
 # install.packages(c("eurostat", "ecb", "dplyr", "tidyr", "lubridate",
 #                    "ggplot2", "patchwork", "brms", "zoo"))
 
