@@ -511,6 +511,71 @@ check("pmi_io parse_pmi_month garbage NA",
       is.na(pmi_env$parse_pmi_month("Xyz99")))
 
 ###############################################################################
+# CALIBRATION HELPERS (calibration_analysis.R)
+###############################################################################
+
+cat("\n== calibration helpers ==\n")
+
+calib_candidates <- c(
+  file.path(getwd(), "new_code", "calibration_analysis.R"),
+  file.path(getwd(), "calibration_analysis.R"),
+  file.path(getwd(), "..", "calibration_analysis.R")
+)
+calib_script <- calib_candidates[file.exists(calib_candidates)]
+if (length(calib_script) == 0L) stop("Cannot locate calibration_analysis.R")
+cenv <- source_dashboard_helpers(normalizePath(calib_script[1]))
+
+# bin assignment
+bins <- cenv$assign_prob_bin(c(0, 0.05, 0.1, 0.95, 1))
+check("bin bottom includes 0", as.character(bins[1]) == "[0,0.1)")
+check("bin top includes 1", as.character(bins[5]) == "[0.9,1]")
+
+# reliability: perfectly calibrated constant forecast
+rel <- cenv$reliability_by_bin(
+  c(0.5, 0.5, 0.5, 0.5), c(0, 1, 0, 1)
+)
+check("reliability single bin n", rel$n == 4L)
+check_equal("reliability mean predicted", rel$mean_predicted, 0.5)
+check_equal("reliability observed", rel$observed_frequency, 0.5)
+
+# Murphy decomposition, hand-computed:
+# prob c(.1,.1,.9,.9), y c(0,0,1,1):
+#   Brier = .01; REL = 2/4*(.1-0)^2 + 2/4*(.9-1)^2 = .01;
+#   RES = 2/4*(0-.5)^2 + 2/4*(1-.5)^2 = .25; UNC = .5*.5 = .25
+dec <- cenv$brier_decomposition(
+  c(0.1, 0.1, 0.9, 0.9), c(0, 0, 1, 1)
+)
+check_equal("decomp brier", round(dec$brier, 6), 0.01)
+check_equal("decomp reliability", round(dec$reliability, 6), 0.01)
+check_equal("decomp resolution", round(dec$resolution, 6), 0.25)
+check_equal("decomp uncertainty", round(dec$uncertainty, 6), 0.25)
+
+# identity: Brier = REL - RES + UNC
+dec2 <- cenv$brier_decomposition(
+  c(0.2, 0.4, 0.6, 0.8, 0.3, 0.7), c(0, 0, 1, 1, 0, 1)
+)
+check("decomp identity",
+      abs(dec2$brier -
+            (dec2$reliability - dec2$resolution + dec2$uncertainty)) < 1e-12)
+
+# calibration slope: draws from a calibrated forecast -> intercept ~0, slope ~1
+set.seed(1)
+cal_p <- ((1:40) - 0.5) / 40
+cal_y <- rbinom(40, 1, prob = cal_p)
+sl <- cenv$calibration_slope_intercept(cal_p, cal_y)
+check("calibrated slope near 1", is.finite(sl$slope) &&
+        sl$slope > 0.5 && sl$slope < 2)
+check("calibrated intercept near 0", is.finite(sl$intercept) &&
+        abs(sl$intercept) < 1.5)
+
+# miscalibrated (too extreme) forecasts: observed frequency falls while
+# predictions rise steeply -> slope well below 1 (can even be negative)
+sl2 <- cenv$calibration_slope_intercept(
+  c(0.85, 0.88, 0.9, 0.92, 0.95, 0.97), c(1, 1, 1, 0, 0, 0)
+)
+check("overconfident slope < 1", is.finite(sl2$slope) && sl2$slope < 1)
+
+###############################################################################
 # SUMMARY
 ###############################################################################
 
