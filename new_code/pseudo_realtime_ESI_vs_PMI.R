@@ -68,6 +68,17 @@
 #     (lag 1) and the Harvey et al. (1997) small-sample correction, run per
 #     area and on the pooled sample.
 #
+# OPERATIONS
+#   * Smoke mode: set BACKTEST_MAX_EVENTS=<n> to fit only the first n event
+#     dates. This validates the whole environment (Java/RJSDMX downloads,
+#     OECD archive, PMI workbook, brms fit, exports) in minutes; smoke
+#     results go to event_runs_smoke/ and can never mix with a full run.
+#   * Resume: each event's result table is persisted to event_runs/*.csv and
+#     re-used on re-run, so an interrupted run continues where it stopped
+#     (on top of the OECD download cache and the brms fit cache). A
+#     progress_manifest.csv logs one row per event. Delete event_runs/ to
+#     force a clean refit after changing inputs or settings.
+#
 # IMPORTANT LIMITATIONS (in line with the existing robustness scripts):
 #   * Eurostat's ESI dataset supplies the currently available history, not
 #     historical ESI vintages: ESI is real-time with respect to publication
@@ -206,8 +217,25 @@ OUTPUT_DIR <- file.path(
 )
 MODEL_CACHE_DIR <- file.path(OUTPUT_DIR, "brms_cache")
 OECD_CACHE_FILE <- file.path(OUTPUT_DIR, "oecd_gdp_vintages_raw.csv")
+
+# Smoke mode: BACKTEST_MAX_EVENTS=<n> caps the event grid to its first n
+# dates (environment validation). Smoke runs persist to a separate
+# event_runs_smoke/ directory so they cannot be mixed into a full run.
+backtest_max_events <- suppressWarnings(
+  as.integer(Sys.getenv("BACKTEST_MAX_EVENTS", ""))
+)
+smoke_mode <- length(backtest_max_events) == 1L &&
+  is.finite(backtest_max_events) && backtest_max_events > 0L
+
+# Resume support: per-event result tables in event_runs/ are re-used by a
+# re-run, so interrupted runs continue where they stopped.
+EVENT_RUNS_DIRNAME <- if (smoke_mode) "event_runs_smoke" else "event_runs"
+EVENT_RUNS_DIR <- file.path(OUTPUT_DIR, EVENT_RUNS_DIRNAME)
+PROGRESS_MANIFEST_FILE <- file.path(OUTPUT_DIR, "progress_manifest.csv")
+
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 dir.create(MODEL_CACHE_DIR, recursive = TRUE, showWarnings = FALSE)
+dir.create(EVENT_RUNS_DIR, recursive = TRUE, showWarnings = FALSE)
 
 set.seed(123)
 
@@ -1307,10 +1335,71 @@ fit_one_event <- function(gdp_vintages_processed, predictors, event_date,
     )
 }
 
+# --- Run persistence helpers (smoke mode / resume) --------------------------
+# Each event's result table is written to event_runs/<date>.csv; a re-run
+# re-reads those files instead of refitting, so interrupted runs resume.
+# target_quarter travels through CSV as "YYYY-Qq" text and comes back as
+# a yearqtr; event_date as ISO date text. Conversions are plain vectorised
+# calls with explicit zoo:: namespaces: S3 dispatch inside a dplyr data
+# mask fails when the calling environment is not the global one.
+
+event_run_file <- function(event_date, runs_dir = EVENT_RUNS_DIR) {
+  file.path(
+    runs_dir,
+    paste0("event_", format(as.Date(event_date), "%Y%m%d"), ".csv")
+  )
+}
+
+format_event_run_csv <- function(rows) {
+  rows$event_date <- format(as.Date(rows$event_date), "%Y-%m-%d")
+  rows$target_quarter <- zoo::format.yearqtr(
+    rows$target_quarter, format = "%Y-Q%q"
+  )
+  rows
+}
+
+read_event_run_csv <- function(path) {
+  rows <- utils::read.csv(
+    path,
+    stringsAsFactors = FALSE,
+    check.names = FALSE,
+    na.strings = c("NA", "")
+  )
+  rows$event_date <- as.Date(rows$event_date)
+  rows$target_quarter <- zoo::as.yearqtr(rows$target_quarter,
+                                         format = "%Y-Q%q")
+  rows
+}
+
+append_progress_manifest <- function(event_date, source, status, n_rows,
+                                     error_message = NA_character_) {
+  row <- data.frame(
+    event_date = format(as.Date(event_date), "%Y-%m-%d"),
+    mode = if (smoke_mode) "smoke" else "full",
+    source = source,
+    status = status,
+    n_rows = as.integer(n_rows),
+    error_message = error_message,
+    fitted_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"),
+    stringsAsFactors = FALSE
+  )
+  exists <- file.exists(PROGRESS_MANIFEST_FILE)
+  write.table(
+    row,
+    PROGRESS_MANIFEST_FILE,
+    sep = ",",
+    row.names = FALSE,
+    col.names = !exists,
+    append = exists,
+    quote = TRUE,
+    na = ""
+  )
+  invisible(NULL)
+}
+
 ###############################################################################
 # 8. RUN THE BACKTEST
 ###############################################################################
-
 cat("\n=== Downloading GDP vintage archives ===\n")
 
 ea_vintages_raw <- download_ea_gdp_vintages()
@@ -1373,6 +1462,14 @@ print(
 )
 
 event_dates <- sort(unique(event_grid$event_date))
+if (smoke_mode) {
+  event_dates <- head(event_dates, backtest_max_events)
+  cat(
+    "SMOKE MODE: BACKTEST_MAX_EVENTS=", backtest_max_events,
+    " -> fitting only the first ", length(event_dates), " event date(s)\n",
+    sep = ""
+  )
+}
 cat("\nPseudo-real-time model runs (event dates):", length(event_dates), "\n")
 
 run_one_event <- function(event_date) {
@@ -1411,17 +1508,65 @@ run_one_event <- function(event_date) {
     bind_rows()
 }
 
-backtest_all <- bind_rows(
-  lapply(event_dates, function(d) {
-    cat("  [", format(d), "] fitting ESI + PMI hierarchical models\n", sep = "")
-    tryCatch(
-      run_one_event(d),
-      error = function(e) {
-        warning(paste0("Event ", format(d), " failed: ", conditionMessage(e)))
-        NULL
-      }
+# Run (or reload from the resume cache) one event date. Per-approach fit
+# failures come back as status="failed" rows and are persisted like any
+# other result; errors thrown before/outside the per-approach fits (e.g.
+# in predictor assembly) leave no event file behind, so the next run
+# retries the event.
+run_or_load_event <- function(event_date) {
+  result_file <- event_run_file(event_date)
+
+  if (file.exists(result_file)) {
+    cached <- read_event_run_csv(result_file)
+    cat(
+      "  [", format(event_date), "] cached event result, skipping fit\n",
+      sep = ""
     )
-  })
+    append_progress_manifest(event_date, "cache", "ok", nrow(cached))
+    return(cached)
+  }
+
+  cat(
+    "  [", format(event_date), "] fitting ESI + PMI hierarchical models\n",
+    sep = ""
+  )
+  result <- tryCatch(
+    run_one_event(event_date),
+    error = function(e) {
+      warning(paste0(
+        "Event ", format(event_date), " failed: ", conditionMessage(e)
+      ))
+      append_progress_manifest(
+        event_date, "fit", "error", 0L, conditionMessage(e)
+      )
+      NULL
+    }
+  )
+  if (is.null(result)) {
+    return(NULL)
+  }
+
+  append_progress_manifest(
+    event_date,
+    "fit",
+    if (all(result$status == "ok")) "ok" else "partial",
+    nrow(result),
+    paste(
+      unique(result$error_message[!is.na(result$error_message)]),
+      collapse = " | "
+    )
+  )
+  write.csv(
+    format_event_run_csv(result),
+    result_file,
+    row.names = FALSE,
+    na = ""
+  )
+  result
+}
+
+backtest_all <- bind_rows(
+  lapply(event_dates, run_or_load_event)
 )
 
 # One nowcast per (approach, geo, quarter): keep the FIRST event at which the
