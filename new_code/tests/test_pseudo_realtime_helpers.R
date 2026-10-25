@@ -366,6 +366,151 @@ check("manifest error row", mf$status[2] == "error" &&
         mf$error_message[2] == "boom")
 
 ###############################################################################
+# DASHBOARD DATA LAYER (update_dashboard_data.R + pmi_io.R)
+###############################################################################
+
+cat("\n== dashboard data layer ==\n")
+
+source_dashboard_helpers <- function(path) {
+  exprs <- parse(path)
+  denv <- new.env(parent = globalenv())
+  assign("library", function(...) invisible(NULL), envir = denv)
+  assign("require", function(...) invisible(NULL), envir = denv)
+  assign("install.packages", function(...) invisible(NULL), envir = denv)
+  assign("Sys.which", function(x) "/usr/bin/java", envir = denv)
+  assign("dir.create", function(...) invisible(TRUE), envir = denv)
+  assign("set.seed", function(...) invisible(NULL), envir = denv)
+  for (i in seq_along(exprs)) {
+    deparse_first <- deparse(exprs[[i]][[1]], nlines = 1)[1]
+    if (identical(deparse_first, "cat")) break
+    eval(exprs[[i]], envir = denv)
+  }
+  denv
+}
+
+script_candidates <- c(
+  file.path(getwd(), "new_code", "update_dashboard_data.R"),
+  file.path(getwd(), "update_dashboard_data.R"),
+  file.path(getwd(), "..", "update_dashboard_data.R")
+)
+dash_script <- script_candidates[file.exists(script_candidates)]
+if (length(dash_script) == 0L) stop("Cannot locate update_dashboard_data.R")
+denv <- source_dashboard_helpers(normalizePath(dash_script[1]))
+
+check_equal("dashboard cutoff is max - 5y",
+            as.numeric(denv$dashboard_cutoff_quarter(
+              zoo::as.yearqtr("2026 Q2"), gap_years = 5
+            )),
+            as.numeric(zoo::as.yearqtr("2021 Q2")))
+
+monthly <- tibble::tibble(
+  geo = rep(c("EA", "DE"), each = 4),
+  month = zoo::as.yearmon(c("2026-01", "2026-02", "2026-03", "2026-04",
+                            "2026-01", "2026-02", "2026-03", "2026-04")),
+  value = 1:8
+) %>% mutate(quarter = zoo::as.yearqtr(month))
+flags <- denv$complete_quarter_flags(monthly)
+check("complete quarter 2026Q1", all(flags$complete[flags$quarter ==
+                                                      zoo::as.yearqtr("2026 Q1")]))
+check("partial quarter 2026Q2 incomplete", all(!flags$complete[flags$quarter ==
+                                                                 zoo::as.yearqtr("2026 Q2")]))
+
+seg_rows <- tibble::tibble(
+  geo = c("EA", "EA", "EA"),
+  quarter = zoo::as.yearqtr(c("2018 Q1", "2022 Q1", "2026 Q1")),
+  has_gdp = c(TRUE, TRUE, FALSE)
+)
+segged <- denv$assign_segments(
+  seg_rows, cutoff_quarter = zoo::as.yearqtr("2021 Q2")
+)
+check("segment in_sample",
+      segged$segment[1] == "in_sample")
+check("segment out_of_sample",
+      segged$segment[2] == "out_of_sample")
+check("segment nowcast",
+      segged$segment[3] == "nowcast")
+check("assign_segments rejects gdp-less training rows",
+      inherits(
+        try(denv$assign_segments(
+          tibble::tibble(quarter = zoo::as.yearqtr("2018 Q1"), has_gdp = FALSE),
+          cutoff_quarter = zoo::as.yearqtr("2021 Q2")
+        ), silent = TRUE),
+        "try-error"
+      ))
+
+sp <- denv$scale_parameters(c(1, 2, 3, 10), "test")
+check_equal("scale_parameters mean", sp$mean, 4)
+check("scale_parameters sd finite", is.finite(sp$sd) && sp$sd > 0)
+check("scale_parameters rejects degenerate input",
+      inherits(try(denv$scale_parameters(c(5, 5, 5), "flat"), silent = TRUE),
+               "try-error"))
+
+good_csv <- tibble::tibble(
+  predictor = "esi",
+  geo = c("EA", "EA"),
+  quarter = c("2020-Q1", "2020-Q2"),
+  prob_recession = c(0.4, 0.6),
+  lower_95 = c(0.1, 0.3),
+  upper_95 = c(0.7, 0.9),
+  segment = c("in_sample", "nowcast"),
+  recession_actual = c(1, NA)
+)
+check("validate accepts well-formed csv",
+      isTRUE(denv$validate_probabilities_csv(good_csv)))
+check("validate rejects prob > 1",
+      inherits(
+        try(denv$validate_probabilities_csv(
+          good_csv %>% mutate(prob_recession = 1.4)
+        ), silent = TRUE),
+        "try-error"
+      ))
+check("validate rejects bad segment",
+      inherits(
+        try(denv$validate_probabilities_csv(
+          good_csv %>% mutate(segment = "weird")
+        ), silent = TRUE),
+        "try-error"
+      ))
+check("validate rejects unparsable quarter",
+      inherits(
+        try(denv$validate_probabilities_csv(
+          good_csv %>% mutate(quarter = "2020-Q9")
+        ), silent = TRUE),
+        "try-error"
+      ))
+check("validate rejects interval not covering estimate",
+      inherits(
+        try(denv$validate_probabilities_csv(
+          good_csv %>% mutate(lower_95 = 0.9)
+        ), silent = TRUE),
+        "try-error"
+      ))
+
+check("find_repo_root picks candidate with dashboard/",
+      {
+        cand <- file.path(tempdir(), "dashboard_root_probe", "dashboard")
+        dir.create(cand, recursive = TRUE, showWarnings = FALSE)
+        parent <- dirname(cand)
+        normalizePath(parent) == normalizePath(denv$find_repo_root(
+          c("/nonexistent/root", parent)
+        ))
+      })
+check("find_repo_root stops without match",
+      inherits(
+        try(denv$find_repo_root(c("/no/such/dir", "/none/here")), silent = TRUE),
+        "try-error"
+      ))
+
+pmi_env <- new.env(parent = globalenv())
+source(file.path(dirname(dash_script[1]), "pmi_io.R"), local = pmi_env)
+check("pmi_io parse_pmi_month Jan98",
+      is.numeric(as.numeric(pmi_env$parse_pmi_month("Jan98"))) &&
+        as.numeric(pmi_env$parse_pmi_month("Jan98")) ==
+          as.numeric(zoo::as.yearmon("1998-01")))
+check("pmi_io parse_pmi_month garbage NA",
+      is.na(pmi_env$parse_pmi_month("Xyz99")))
+
+###############################################################################
 # SUMMARY
 ###############################################################################
 

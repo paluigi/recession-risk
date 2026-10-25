@@ -10,3 +10,7 @@ renv/*
 # archived superseded/scratch material (kept on disk, not in version control)
 /attic/
 /.zcode/
+
+# brms fit caches are host-specific binaries; only the derived CSV artifacts
+# of the dashboard are versioned
+/dashboard/data/brms_cache/
