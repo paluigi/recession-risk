@@ -149,6 +149,10 @@ window.Quarto = {
 <span class="menu-text">Methodology</span></a>
   </li>  
   <li class="nav-item">
+    <a class="nav-link" href="./short-note.html"> 
+<span class="menu-text">Note</span></a>
+  </li>  
+  <li class="nav-item">
     <a class="nav-link" href="./about.html"> 
 <span class="menu-text">About</span></a>
   </li>  
@@ -256,7 +260,7 @@ window.Quarto = {
 <li><strong>Economic Sentiment Indicator (ESI)</strong>: Sourced from Eurostat, the ESI is a composite indicator made up of five sectoral confidence indicators with different weights (industrial, services, consumer, construction, and retail trade). It serves as a timely tracker of macroeconomic sentiment.</li>
 <li><strong>Composite Indicator of Systemic Stress (CISS)</strong>: Developed by <span class="citation" data-cites="hollo2012ciss">Holló, Kremer, and Lo Duca (<a href="#ref-hollo2012ciss" role="doc-biblioref">2012</a>)</span> and sourced from the European Central Bank, the CISS measures the level of systemic stress in the financial system. It aggregates indicators across five market segments (money, equity, bond, foreign exchange, and financial intermediaries) using portfolio theory to weight segments by their correlation. This captures the systemic dimension of financial stress, which has been shown to be a crucial driver of economic downside risks (<span class="citation" data-cites="adrian2019vulnerable">Adrian, Boyarchenko, and Giannone (<a href="#ref-adrian2019vulnerable" role="doc-biblioref">2019</a>)</span>).</li>
 </ol>
-<p>Prior to estimation, both predictors are scaled (mean-centered and divided by their standard deviation) to facilitate MCMC convergence.</p>
+<p>Prior to estimation, both predictors are scaled (mean-centered and divided by their standard deviation) to facilitate MCMC convergence. In the production scripts the scaling parameters are computed on the full available sample (a mild look-ahead that only affects the location/scale of the predictors, not their shape); the pseudo-real-time backtest instead computes them on the training window only, so that no post-cutoff information enters the simulated nowcasts.</p>
 </section>
 </section>
 <section id="bayesian-estimation-and-priors" class="level2" data-number="4">
@@ -276,7 +280,7 @@ window.Quarto = {
 <li>Standard deviations: <span class="math inline">\(\sigma \sim \text{Student-}t(3, 0, 2.5)\)</span> (truncated to positive values)</li>
 <li>Correlation matrix: <span class="math inline">\(\mathbf{R} \sim \text{LKJ}(1)\)</span></li>
 </ul>
-<p>The LKJ prior with <span class="math inline">\(\eta = 1\)</span> is uniform over all correlation matrices, representing a neutral prior belief about the correlations between random intercepts and slopes.</p>
+<p>These are the <code>brms</code> defaults used by the production scripts (<code>new_code/recessione_CISS_ESI.R</code>, <code>new_code/recessione_CISS_PMI_composito.R</code>); they are weakly informative and only regularize extreme values. The LKJ prior with <span class="math inline">\(\eta = 1\)</span> is uniform over all correlation matrices, representing a neutral prior belief about the correlations between random intercepts and slopes. The pseudo-real-time backtest (<code>new_code/pseudo_realtime_ESI_vs_PMI.R</code>) instead sets the slightly tighter <span class="math inline">\(\sigma \sim \mathcal{N}(0, 2)\)</span> and <span class="math inline">\(\mathbf{R} \sim \text{LKJ}(2)\)</span> with <code>adapt_delta = 0.95</code>, for numerical stability across the many refits of the simulation; this choice affects the backtest comparison only, not the production estimates.</p>
 </section>
 </section>
 <section id="inference-and-out-of-sample-evaluation" class="level2" data-number="5">

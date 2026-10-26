@@ -33,20 +33,51 @@ Priors are selected to be weakly informative: $\alpha_0 \sim \mathcal{N}(0, 5)$ 
 ## Getting Started
 
 ### Prerequisites
-The project uses R and Quarto. You should have R (>= 4.0) and Quarto installed.
+The project uses R and Quarto. You should have R (>= 4.2) and Quarto installed.
 
 The project dependencies are managed via `renv`. To install them, launch R in the project root and run:
 ```R
 renv::restore()
 ```
 
-This will install packages including `brms` (for Bayesian modeling), `eurostat`, `ecb`, `dplyr`, `ggplot2`, and `patchwork`.
+This will install packages including `brms` (for Bayesian modeling), `RJSDMX` (data
+retrieval; requires Java on PATH), `dplyr`, `ggplot2`, and `patchwork`.
 
-### Running the Analysis
-To run the R script that downloads data, estimates the model, and generates results locally:
+### Tests
+The offline test suite (unit tests on pure helpers + a synthetic-data pipeline
+test, no downloads and no brms needed) runs in seconds:
+```bash
+Rscript --vanilla new_code/tests/run_all_tests.R
+```
+Add `--with-live` to include the live OECD smoke test.
+
+### Dashboard refresh cycle
+The website renders from **committed artifacts**, so refreshing the forecast
+never re-fits models at render time:
+
+1. On a host with RJSDMX/brms (e.g. production), produce the artifacts:
+   ```bash
+   DASHBOARD_PREDICTOR=esi Rscript --vanilla new_code/update_dashboard_data.R
+   ```
+   This fits the production hierarchical model with the 5-year-gap design and
+   writes `dashboard/data/probabilities_esi.csv` (probabilities tagged
+   in-sample / out-of-sample / nowcast), `fixed_effects_esi.csv`, `meta_esi.csv`,
+   and the model summary. Use `DASHBOARD_PREDICTOR=pmi` for the PMI arm
+   (production only — the S&P Global workbook cannot leave that network).
+2. Commit the refreshed `dashboard/data/*.csv`.
+3. Render locally: `make dashboard` (or `quarto render`).
+
+`index.qmd` shows the last 120 months: in-sample fit (blue), out-of-sample
+inference (orange), and the nowcast extension to the latest quarter whose
+three months of predictor data are published (dashed orange). There are no
+forward projections.
+
+### Running the original analysis script
 ```bash
 Rscript recession-index.R
 ```
+downloads data via the `eurostat`/`ecb` packages, fits the model in memory and
+plots it. `recession-index-rjsdmx.R` is the RJSDMX-based equivalent.
 
 ### Rendering the Website
 The results and methodology are compiled into a Quarto website. To build the website:
@@ -61,17 +92,27 @@ quarto preview
 ```
 
 ## Repository Structure
-- `index.qmd`: Home page of the website displaying the compiled charts and results.
+- `index.qmd`: dashboard home page — renders the probability charts from the
+  committed artifacts in `dashboard/data/` (no downloads, no fitting).
 - `about.qmd`: Details about the project background and data sources.
 - `methodology.qmd`: Technical report explaining the equations, priors, and references.
+- `short-note.qmd`: research note (Economics Letters style; renders to
+  `_site/short-note.pdf`) — also reads committed artifacts and includes the
+  real-time evaluation section.
+- `Makefile`: `make test` / `make update-data` / `make dashboard` / `make site`.
 - `_quarto.yml`: Quarto website configuration.
-- `recession-index.R`: Standalone R script for processing and estimation.
+- `recession-index.R`: Standalone R script for processing and estimation
+  (`eurostat`/`ecb` package data layer).
+- `recession-index-rjsdmx.R`: RJSDMX-based version of the same.
 - `references.bib`: Bibliographical database containing the citation entries.
 - `reference/`: Folder containing the reference paper PDF.
-- `new_code/`: Alternative specifications and real-time evaluation experiments.
+- `dashboard/data/`: committed model artifacts consumed by the site.
+- `new_code/`: production specifications and real-time evaluation experiments.
   - `recessione_CISS_ESI.R`: production model, CISS + ESI predictors.
   - `recessione_CISS_PMI_composito.R`: production model, CISS + composite PMI
     predictors (S&P Global workbook, production environment only).
+  - `pmi_io.R`: shared, unit-tested reader for the PMI workbook.
+  - `update_dashboard_data.R`: dashboard data layer (fit + artifact export).
   - `robustness_real_time_vs_latest_EA_CISS_{ESI,PMI}.R`: EA-only real-time
     vs latest-vintage comparisons for each specification.
   - `pseudo_realtime_ESI_vs_PMI.R`: **pseudo-real-time backtest comparing
@@ -79,7 +120,23 @@ quarto preview
     FR, IT, ES with real GDP vintages (Eurostat `ei_na_q_vtg` for the EA,
     OECD MEI vintage editions for countries), Brier/log/AUC scores per
     area and pooled, and Diebold-Mariano tests (HAC + Harvey correction)
-    of whether either specification forecasts better. See
+    of whether either specification forecasts better. Supports a smoke mode
+    (`BACKTEST_MAX_EVENTS=<n>`) and resume via per-event caches. See
+    `new_code/PROD_RUN_ESI_VS_PMI.md` for the production run guide and
     `new_code/data_sources_pseudo_realtime.md` for the full source
-    documentation and `new_code/tests/` for the test suites
-    (`run_all_tests.R`; add `--with-live` for the OECD live smoke test).
+    documentation.
+  - `calibration_analysis.R`: post-hoc calibration (reliability bins, Murphy
+    Brier decomposition, logistic recalibration) from the backtest's
+    `paired_probabilities.csv` — no model re-runs needed.
+  - `tests/`: offline test suites (`run_all_tests.R`; add `--with-live` for
+    the OECD live smoke test).
+
+## Status / next steps
+- [x] Production hierarchical models (ESI and PMI arms) + vintage data layer.
+- [x] EA-only real-time vs latest-vintage robustness runs (results committed).
+- [x] ESI-vs-PMI backtest code, tests, and production run guide — **execution
+      pending on production** (`new_code/PROD_RUN_ESI_VS_PMI.md`).
+- [x] Dashboard data layer + artifact-driven site.
+- [ ] Ingest the backtest results, write `new_code/RESULTS.md`, finalize the
+      note's ESI-vs-PMI section, and pick the dashboard predictor arm.
+- [ ] Post-hoc calibration once the backtest results are committed.

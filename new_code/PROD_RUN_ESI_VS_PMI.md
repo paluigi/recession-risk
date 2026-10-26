@@ -28,10 +28,10 @@ interrupted run simply resumes where it stopped.
 ```bash
 git clone https://github.com/paluigi/recession-risk.git
 cd recession-risk
-git checkout <run-branch>     # the branch carrying the latest script version
+git checkout feat/prod-esi-vs-pmi-run
 ```
 
-If the repo is already cloned: `git fetch && git checkout <run-branch> && git pull`.
+If the repo is already cloned: `git fetch && git checkout feat/prod-esi-vs-pmi-run && git pull`.
 
 > Do **not** run `renv::restore()`: the lockfile pins R 4.4.1 while
 > production runs 4.5.3, and the box already has the required packages in

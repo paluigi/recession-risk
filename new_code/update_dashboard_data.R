@@ -649,6 +649,15 @@ capture.output(
     OUTPUT_DIR, paste0("model_summary_", dashboard_predictor, ".txt")
   )
 )
+
+# Tidy population-level effects (consumed by short-note.qmd).
+fixef(brms_model) |>
+  as.data.frame() |>
+  tibble::rownames_to_column("parameter") |>
+  write.csv(
+    file.path(OUTPUT_DIR, paste0("fixed_effects_", dashboard_predictor, ".csv")),
+    row.names = FALSE
+  )
 capture.output(
   sessionInfo(),
   file = file.path(OUTPUT_DIR, "session_info.txt")

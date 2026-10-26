@@ -15,7 +15,10 @@ abstract: |
   show that the model accurately identifies all major EA recessions in sample
   and captures the divergence in recession risk across member states in recent
   years, with Germany exhibiting persistently elevated probabilities relative to
-  Spain.
+  Spain. A pseudo-real-time evaluation on historical GDP vintages shows that
+  real-time nowcasts remain informative about the contemporaneous recession
+  state, and a head-to-head comparison against a PMI-based specification
+  assesses which sentiment proxy is better suited for monitoring going forward.
 keywords:
   - Nowcasting
   - Recession risk
@@ -28,6 +31,9 @@ jel:
   - E32
   - E37
 format:
+  html:
+    toc: false
+    number-sections: true
   pdf:
     toc: false
     number-sections: true
@@ -73,128 +79,39 @@ $$
 
 The vector of random deviations $\mathbf{u}_i = (u_{0,i},\, u_{1,i},\, u_{2,i})'$ is assumed to follow a multivariate normal distribution with mean zero and an unstructured covariance matrix $\boldsymbol{\Sigma}$. This formulation nests two polar cases: when $\boldsymbol{\Sigma} \to \mathbf{0}$, the model collapses to a pooled logit with common coefficients; when $\boldsymbol{\Sigma} \to \infty$, it reduces to separate country-level estimates with no pooling. The intermediate case induces shrinkage, pulling country estimates toward the Euro Area mean while preserving cross-country heterogeneity.
 
-The model is estimated via Hamiltonian Monte Carlo using the `brms` package [@burkner2017brms] in R, with two chains of 2,000 iterations (1,000 warmup each). We specify weakly informative priors: $\alpha_0 \sim \mathcal{N}(0, 5)$ and $\beta_1, \beta_2 \sim \mathcal{N}(0, 2)$ on the logit scale. The training sample excludes the most recent five years of data, which are reserved for out-of-sample inference.
+The model is estimated via Hamiltonian Monte Carlo using the `brms` package [@burkner2017brms] in R, with two chains of 2,000 iterations (1,000 warmup each). We specify weakly informative priors: $\alpha_0 \sim \mathcal{N}(0, 5)$ and $\beta_1, \beta_2 \sim \mathcal{N}(0, 2)$ on the logit scale; the group-level standard deviations and correlations keep the `brms` defaults (half-Student-$t$(3, 0, 2.5) and LKJ(1), respectively). The training sample excludes the most recent five years of data, which are reserved for out-of-sample inference. Predictors are standardized using the mean and standard deviation of the training window only, so that no post-cutoff information enters the out-of-sample estimates.
 
 ```{r}
-#| label: model-run
-# Load required libraries
-library(eurostat)
-library(ecb)
+#| label: artifacts
+#| results: asis
+# The note renders from the committed model artifacts produced by
+# new_code/update_dashboard_data.R (see the project README); no data are
+# downloaded and no model is fit at render time.
 library(dplyr)
-library(tidyr)
-library(lubridate)
 library(ggplot2)
 library(patchwork)
-library(brms)
 library(zoo)
 
-# Geographies
-target_geo_eurostat <- c("EA20", "EA19", "DE", "FR", "IT", "ES")
-target_geo_ecb <- c("U2", "DE", "FR", "IT", "ES")
+dash_dir <- "dashboard/data"
+probabilities_file <- file.path(dash_dir, "probabilities_esi.csv")
+has_main <- file.exists(probabilities_file)
 
-# 1. Download GDP Data (Eurostat)
-gdp_raw <- get_eurostat("namq_10_gdp", time_format = "date", stringsAsFactors = FALSE)
-gdp <- gdp_raw %>%
-  rename(any_of(c(time = "TIME_PERIOD", values = "OBS_VALUE"))) %>%
-  filter(
-    na_item == "B1GQ",
-    s_adj == "SCA",
-    unit == "CLV_PCH_PRE",
-    geo %in% target_geo_eurostat
-  ) %>%
-  select(geo, time, gdp_growth = values) %>%
-  mutate(
-    geo = ifelse(grepl("EA", geo), "EA", geo),
-    quarter = as.yearqtr(time)
-  ) %>%
-  group_by(geo, quarter) %>%
-  summarise(gdp_growth = mean(gdp_growth, na.rm = TRUE), .groups = "drop")
-
-# 2. Download CISS Data (ECB)
-ciss_key <- "CISS.D..Z0Z.4F.EC.SS_CIN.IDX"
-ciss_raw <- get_data(ciss_key)
-ciss <- ciss_raw %>%
-  filter(ref_area %in% target_geo_ecb) %>%
-  mutate(
-    obstime_char = as.character(obstime),
-    time = as.Date(ifelse(nchar(obstime_char) == 7, paste0(obstime_char, "-01"), obstime_char)),
-    geo = ifelse(ref_area == "U2", "EA", ref_area),
-    quarter = as.yearqtr(time)
-  ) %>%
-  group_by(geo, quarter) %>%
-  summarise(ciss = mean(obsvalue, na.rm = TRUE), .groups = "drop")
-
-# 3. Download Economic Sentiment Indicator (Eurostat)
-esi_raw <- get_eurostat("ei_bssi_m_r2", time_format = "date", stringsAsFactors = FALSE)
-esi <- esi_raw %>%
-  rename(any_of(c(time = "TIME_PERIOD", values = "OBS_VALUE"))) %>%
-  filter(
-    indic == "BS-ESI-I",
-    s_adj == "SA",
-    geo %in% target_geo_eurostat
-  ) %>%
-  select(geo, time, esi = values) %>%
-  mutate(
-    geo = ifelse(grepl("EA", geo), "EA", geo),
-    quarter = as.yearqtr(time)
-  ) %>%
-  group_by(geo, quarter) %>%
-  summarise(esi = mean(esi, na.rm = TRUE), .groups = "drop")
-
-# Merge and Process
-df <- gdp %>%
-  inner_join(ciss, by = c("geo", "quarter")) %>%
-  inner_join(esi, by = c("geo", "quarter")) %>%
-  arrange(geo, quarter) %>%
-  group_by(geo) %>%
-  mutate(
-    recession = ifelse(gdp_growth < 0 & lag(gdp_growth, 1) < 0, 1, 0)
-  ) %>%
-  drop_na() %>%
-  ungroup() %>%
-  mutate(
-    ciss_scaled = scale(ciss)[,1],
-    esi_scaled = scale(esi)[,1]
+if (!has_main) {
+  cat("Model artifacts not found at ", probabilities_file,
+      ". Run new_code/update_dashboard_data.R on a data host, ",
+      "commit dashboard/data/, and re-render. ",
+      "The results tables and figures below are omitted.", sep = "")
+} else {
+  probs <- read.csv(probabilities_file, stringsAsFactors = FALSE)
+  probs$quarter <- as.yearqtr(probs$quarter, format = "%Y-Q%q")
+  meta <- read.csv(file.path(dash_dir, "meta_esi.csv"), stringsAsFactors = FALSE)
+  cutoff_date <- as.yearqtr(meta$cutoff_quarter, format = "%Y-Q%q")
+  fixed_effects <- read.csv(
+    file.path(dash_dir, "fixed_effects_esi.csv"), stringsAsFactors = FALSE
   )
-
-# Estimation parameters
-max_date <- max(df$quarter)
-cutoff_date <- max_date - 5
-
-train_data <- df %>% filter(quarter <= cutoff_date)
-inference_data <- df
-
-# Model formula
-formula <- brmsformula(
-  recession ~ ciss_scaled + esi_scaled + (1 + ciss_scaled + esi_scaled | geo),
-  family = bernoulli(link = "logit")
-)
-
-# Fit Model
-brms_model <- brm(
-  formula = formula,
-  data = train_data,
-  prior = c(
-    prior(normal(0, 5), class = "Intercept"),
-    prior(normal(0, 2), class = "b")
-  ),
-  chains = 2,
-  cores = 2,
-  iter = 2000,
-  seed = 123,
-  silent = 2,
-  refresh = 0
-)
-
-# Posterior predictions
-predictions <- fitted(brms_model, newdata = inference_data, type = "response")
-df_results <- inference_data %>%
-  mutate(
-    prob_recession = predictions[, "Estimate"],
-    lower_95 = predictions[, "Q2.5"],
-    upper_95 = predictions[, "Q97.5"],
-    is_forecast = ifelse(quarter > cutoff_date, "Inferred (Last 5 Yrs)", "Training Data")
-  )
+  probs$is_forecast <- ifelse(probs$segment == "in_sample",
+                              "Training Data", "Inferred (Last 5 Yrs)")
+}
 ```
 
 # Results {#sec-results}
@@ -204,14 +121,14 @@ The posterior estimates of the population-level effects indicate that both predi
 ```{r}
 #| label: tbl-fixed-effects
 #| tbl-cap: "Posterior summaries for the population-level (fixed) effects. Estimates are on the logit scale; predictors are standardized."
-fixef(brms_model) |>
-  as.data.frame() |>
-  tibble::rownames_to_column("Parameter") |>
+if (has_main) {
   knitr::kable(
+    fixed_effects,
     digits = 3,
     col.names = c("Parameter", "Estimate", "Std. Error", "2.5%", "97.5%"),
     align = "lcccc"
   )
+}
 ```
 
 @fig-recession-probabilities displays the estimated recession probabilities for the Euro Area aggregate and the four member states, together with 95% credible intervals. Grey shaded bars mark historical technical recessions, and the vertical dashed line separates the in-sample estimation period from the out-of-sample inference window (the most recent five years).
@@ -222,64 +139,120 @@ fixef(brms_model) |>
 #| fig-width: 7
 #| fig-height: 9
 #| fig-align: center
-# Function to generate plot
-plot_geo_doc <- function(data, region_name, is_main = FALSE) {
-  p_data <- data %>% filter(geo == region_name)
-  
-  p <- ggplot(p_data, aes(x = as.Date(quarter))) +
-    geom_rect(
-      data = p_data %>% filter(recession == 1),
-      aes(xmin = as.Date(quarter) - 45, xmax = as.Date(quarter) + 45, 
-          ymin = 0, ymax = 1), 
-      fill = "grey80", alpha = 0.5, inherit.aes = FALSE
-    ) +
-    geom_line(aes(y = prob_recession, color = is_forecast), linewidth = 1) +
-    geom_ribbon(aes(ymin = lower_95, ymax = upper_95, fill = is_forecast), alpha = 0.2) +
-    geom_vline(xintercept = as.Date(cutoff_date), linetype = "dashed", color = "red") +
-    scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1)) +
-    scale_color_manual(values = c("Training Data" = "#004B87", "Inferred (Last 5 Yrs)" = "#E37222")) +
-    scale_fill_manual(values = c("Training Data" = "#004B87", "Inferred (Last 5 Yrs)" = "#E37222")) +
-    labs(
-      title = region_name,
-      y = "Recession Prob.",
-      x = "",
-      color = "",
-      fill = ""
-    ) +
-    theme_minimal() +
-    theme(
-      legend.position = "bottom",
-      plot.title = element_text(face = "bold", size = ifelse(is_main, 14, 11))
-    )
-  
-  return(p)
+if (has_main) {
+  # Function to generate plot
+  plot_geo_doc <- function(data, region_name, is_main = FALSE) {
+    p_data <- data %>% filter(geo == region_name)
+    p <- ggplot(p_data, aes(x = as.Date(quarter))) +
+      geom_rect(
+        data = p_data %>% filter(recession_actual == 1),
+        aes(xmin = as.Date(quarter) - 45, xmax = as.Date(quarter) + 45,
+            ymin = 0, ymax = 1),
+        fill = "grey80", alpha = 0.5, inherit.aes = FALSE
+      ) +
+      geom_line(aes(y = prob_recession, color = is_forecast), linewidth = 1) +
+      geom_ribbon(aes(ymin = lower_95, ymax = upper_95, fill = is_forecast), alpha = 0.2) +
+      geom_vline(xintercept = as.Date(cutoff_date), linetype = "dashed", color = "red") +
+      scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1)) +
+      scale_color_manual(values = c("Training Data" = "#004B87", "Inferred (Last 5 Yrs)" = "#E37222")) +
+      scale_fill_manual(values = c("Training Data" = "#004B87", "Inferred (Last 5 Yrs)" = "#E37222")) +
+      labs(
+        title = region_name,
+        y = "Recession Prob.",
+        x = "",
+        color = "",
+        fill = ""
+      ) +
+      theme_minimal() +
+      theme(
+        legend.position = "bottom",
+        plot.title = element_text(face = "bold", size = ifelse(is_main, 14, 11))
+      )
+
+    return(p)
+  }
+
+  p_ea <- plot_geo_doc(probs, "EA", is_main = TRUE) +
+    labs(subtitle = "Euro Area Aggregate Recession Probability")
+
+  p_de <- plot_geo_doc(probs, "DE")
+  p_fr <- plot_geo_doc(probs, "FR")
+  p_it <- plot_geo_doc(probs, "IT")
+  p_es <- plot_geo_doc(probs, "ES")
+
+  country_grid <- (p_de | p_fr) / (p_it | p_es) +
+    plot_layout(guides = "collect") &
+    theme(legend.position = 'bottom')
+
+  final_plot <- p_ea / country_grid + plot_layout(heights = c(1, 1.8))
+  final_plot
 }
-
-p_ea <- plot_geo_doc(df_results, "EA", is_main = TRUE) + 
-  labs(subtitle = "Euro Area Aggregate Recession Probability")
-
-p_de <- plot_geo_doc(df_results, "DE")
-p_fr <- plot_geo_doc(df_results, "FR")
-p_it <- plot_geo_doc(df_results, "IT")
-p_es <- plot_geo_doc(df_results, "ES")
-
-country_grid <- (p_de | p_fr) / (p_it | p_es) + 
-  plot_layout(guides = "collect") & 
-  theme(legend.position = 'bottom')
-
-final_plot <- p_ea / country_grid + plot_layout(heights = c(1, 1.8))
-final_plot
 ```
 
 In sample, the model successfully identifies all major Euro Area recessions---the Global Financial Crisis of 2008--2009, the Sovereign Debt Crisis of 2011--2013, and the COVID-19 contraction of 2020---with sharp probability spikes exceeding 80%. The out-of-sample period, during which no parameter updating occurs, reveals a pronounced divergence across member states since 2022. Germany displays a sustained increase in recession probability, consistent with the structural challenges facing its manufacturing sector, whereas Spain maintains comparatively lower risk estimates throughout the same period.
 
 A notable feature of the results is the tightness of the credible intervals at the country level, despite the relatively small number of recession episodes available for individual member states. This is a direct consequence of the hierarchical structure: by pooling information across geographies, the model regularizes country-specific estimates and avoids the volatile, extreme probabilities that would arise from fitting each country independently.
 
+# Real-time evaluation {#sec-realtime}
+
+The estimates above use the currently published data history, which is itself the product of revisions. To assess how the model performs on the information actually available at each point in time, we run a **pseudo-real-time evaluation**. The exercise reconstructs, for each month since 2015, the GDP panel as it was known on that date: Euro Area aggregates come from the Eurostat quarterly GDP vintage archive (`ei_na_q_vtg`), and country-level vintages from the OECD "Short-term economic statistics revisions" archive, which preserves monthly snapshots of the MEI database since 1999. Predictors enter only once published---the ESI is assumed available on day 29 of its reference month, the composite PMI on day 26---and a quarter's predictor value is formed only when all three months are published. At each event date on which at least one area's latest available GDP quarter changes, the hierarchical model is re-estimated on the pooled panel with the same five-year training gap, and nowcasts the recession probability of each area's latest GDP quarter. Each (area, quarter) is scored once, at its first nowcast opportunity, using the Brier score, the log score, and AUC; paired comparisons use Diebold--Mariano tests with a Newey--West HAC variance and the Harvey et al. (1997) small-sample correction.
+
+As a first validation, @tbl-rt-ea compares, for the Euro Area aggregate, the real-time nowcasts against the same model evaluated on the latest (fully revised) vintage. Real-time probabilities are naturally less accurate than the ex-post-vintage benchmark---GDP data are revised substantially around turning points---but the degradation is moderate, and the real-time series remains informative about the recession state.
+
+```{r}
+#| label: tbl-rt-ea
+#| results: asis
+#| tbl-cap: "Euro Area aggregate: pseudo-real-time nowcasts versus latest-vintage evaluation (CISS + ESI specification; 47 evaluation events, 2014-Q3 to 2026-Q1)."
+rt_file <- file.path("new_code", "real_time_vs_latest_EA_CISS_ESI_output",
+                     "real_time_vs_latest_scores.csv")
+if (file.exists(rt_file)) {
+  rt_scores <- read.csv(rt_file, stringsAsFactors = FALSE)
+  rt_scores$comparison <- gsub(
+    " vs contemporaneous GDP-vintage outcome", " (real-time vintage)",
+    gsub(" vs latest-vintage outcome", " (latest vintage)",
+         rt_scores$comparison)
+  )
+  knitr::kable(
+    rt_scores[, c("comparison", "observations", "brier_score", "log_score", "auc")],
+    digits = 3,
+    col.names = c("Comparison", "N", "Brier", "Log score", "AUC"),
+    align = "lcccc"
+  )
+} else {
+  cat("EA real-time results not committed yet.")
+}
+```
+
+Because the sentiment-based predictor is not obviously optimal---the composite PMI is available earlier in the month and is never revised, while the ESI is broader but published only at month-end---we also run a **head-to-head comparison** of the two specifications (CISS + ESI versus CISS + PMI) in the same pseudo-real-time design, across the Euro Area and the four member states, with Diebold--Mariano tests of equal predictive ability on paired loss differentials.
+
+```{r}
+#| label: esi-pmi-results
+#| results: asis
+cmp_file <- file.path("new_code", "pseudo_realtime_ESI_vs_PMI_output",
+                      "comparison_metrics_by_area.csv")
+dm_file <- file.path("new_code", "pseudo_realtime_ESI_vs_PMI_output",
+                     "diebold_mariano_tests.csv")
+if (file.exists(cmp_file) && file.exists(dm_file)) {
+  cat("### Accuracy by area\n\n")
+  knitr::kable(read.csv(cmp_file, stringsAsFactors = FALSE), digits = 3)
+  cat("\n\n### Diebold--Mariano tests (ESI vs PMI)\n\n")
+  knitr::kable(read.csv(dm_file, stringsAsFactors = FALSE), digits = 3)
+} else {
+  cat("The ESI-vs-PMI head-to-head run is pending: it requires the licensed ",
+      "S&P Global PMI workbook and is executed in the production ",
+      "environment (see new_code/PROD_RUN_ESI_VS_PMI.md). Results will be ",
+      "inserted here once the run completes.",
+      sep = "")
+}
+```
+
+Three limitations of the real-time exercise deserve note. First, the ESI and CISS are available as full currently-published histories rather than true vintages, so they are real-time only with respect to publication timing; the PMI, which S&P Global does not revise, is treated exactly. Second, the OECD editions are monthly snapshots of the MEI database rather than national first releases, though they are the best publicly available archive of country GDP vintages. Third, the technical-recession label is itself vintage-dependent: scoring against the contemporaneous vintage, as done here, is the correct real-time criterion but differs from scoring against revised data.
+
 # Conclusion {#sec-conclusion}
 
-This paper introduces a hierarchical Bayesian framework for nowcasting recession risk in the Euro Area that addresses the fundamental trade-off between exploiting cross-country commonality and preserving country-specific structure. The partial-pooling specification produces stable, well-calibrated probability estimates even for economies with limited recession histories. Our results demonstrate that combining a financial-stress indicator (CISS) with a sentiment measure (ESI) in such a framework delivers accurate in-sample recession detection and informative out-of-sample signals of divergent macroeconomic conditions across member states.
+This paper introduces a hierarchical Bayesian framework for nowcasting recession risk in the Euro Area that addresses the fundamental trade-off between exploiting cross-country commonality and preserving country-specific structure. The partial-pooling specification produces stable, well-calibrated probability estimates even for economies with limited recession histories. Our results demonstrate that combining a financial-stress indicator (CISS) with a sentiment measure (ESI) in such a framework delivers accurate in-sample recession detection and informative out-of-sample signals of divergent macroeconomic conditions across member states. A pseudo-real-time evaluation on historical GDP vintages confirms that these properties survive the data-revision process, and a head-to-head comparison against a PMI-based specification identifies which sentiment proxy is better suited for monitoring going forward.
 
-The framework can be extended in several directions. Incorporating additional predictors---such as term-spread variables, loan growth, or survey-based inflation expectations---could further sharpen the nowcasts. A real-time data vintage analysis would assess the sensitivity of the estimates to data revisions. Finally, the hierarchical structure could be enriched by allowing partial pooling at a sectoral level, thereby capturing within-country heterogeneity in recession dynamics.
+The framework can be extended in several directions. Incorporating additional predictors---such as term-spread variables, loan growth, or survey-based inflation expectations---could further sharpen the nowcasts. The hierarchical structure could be enriched by allowing partial pooling at a sectoral level, thereby capturing within-country heterogeneity in recession dynamics. Finally, replacing the technical-recession definition with committee-based dating, or assessing calibration formally, would provide complementary robustness checks.
 
 ## References {.unnumbered}
 

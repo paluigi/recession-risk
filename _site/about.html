@@ -119,6 +119,10 @@ div.csl-indent {
 <span class="menu-text">Methodology</span></a>
   </li>  
   <li class="nav-item">
+    <a class="nav-link" href="./short-note.html"> 
+<span class="menu-text">Note</span></a>
+  </li>  
+  <li class="nav-item">
     <a class="nav-link active" href="./about.html" aria-current="page"> 
 <span class="menu-text">About</span></a>
   </li>  
@@ -185,8 +189,8 @@ div.csl-indent {
 </ul></li>
 <li><strong>Composite Indicator of Systemic Stress (CISS)</strong>
 <ul>
-<li><strong>Source</strong>: European Central Bank (ECB) Data Portal (Key: <code>CISS.M..Z0Z.4F.EC.SS_CIN.B</code> for the monthly aggregate index).</li>
-<li><strong>Definition</strong>: A monthly index measuring systemic stress in the financial system. It aggregates segment-specific stress indices using portfolio theory to weight segments by their correlation, emphasizing joint stress events. The quarterly value is the average of the monthly CISS values in the quarter.</li>
+<li><strong>Source</strong>: European Central Bank (ECB) Data Portal (Key: <code>CISS.D..Z0Z.4F.EC.SS_CIN.IDX</code>; the daily series is the only one disseminated on the SDMX API — the monthly key returns 404 — so the monthly/quarterly aggregates are computed from the daily index).</li>
+<li><strong>Definition</strong>: An index measuring systemic stress in the financial system. It aggregates segment-specific stress indices using portfolio theory to weight segments by their correlation, emphasizing joint stress events. The quarterly value is the average of the daily CISS values in the quarter.</li>
 <li><strong>Role</strong>: Financial stress indicator representing capital and credit risks.</li>
 </ul></li>
 </ol>
@@ -197,7 +201,7 @@ div.csl-indent {
 <ul>
 <li><strong>Bayesian Modeling</strong>: Estimated via Markov Chain Monte Carlo (MCMC) using the <code>brms</code> package, which runs on top of Stan.</li>
 <li><strong>Hierarchical Pooling</strong>: Intercepts and indicator coefficients (slopes) are modeled with group-level random effects grouped by geography (<code>geo</code>). This pools informational strength across countries to make predictions more robust.</li>
-<li><strong>Replicability</strong>: The R script <code>recession-index.R</code> downloads the latest data, fits the model, and saves the data. The site compiles dynamically to display updated probabilities.</li>
+<li><strong>Replicability</strong>: The R script <code>recession-index.R</code> downloads the latest data, fits the model, and displays the estimated probabilities; <code>new_code/update_dashboard_data.R</code> produces the persisted model artifacts consumed by the site.</li>
 </ul>
 </section>
 <section id="references" class="level2">

@@ -1,5 +1,10 @@
 project:
   type: website
+  render:
+    - index.qmd
+    - methodology.qmd
+    - about.qmd
+    - short-note.qmd
 
 website:
   title: "recession-risk"
@@ -9,6 +14,8 @@ website:
         text: Home
       - href: methodology.qmd
         text: Methodology
+      - href: short-note.qmd
+        text: Note
       - about.qmd
 
 format:
